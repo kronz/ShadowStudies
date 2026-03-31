@@ -1,0 +1,35 @@
+{
+  "name": "shadow-study-v2",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "DEV_SERVER=1 vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "prettier:check": "yarn prettier --check src",
+    "prettier:write": "yarn prettier --write src"
+  },
+  "dependencies": {
+    "earcut": "^3.0.2",
+    "file-saver": "^2.0.5",
+    "forma-embedded-view-sdk": "^0.87.0",
+    "jszip": "3.10.1",
+    "lodash": "^4.17.21",
+    "luxon": "^3.4.4",
+    "polyclip-ts": "^0.16.8",
+    "preact": "^10.20.1",
+    "suncalc": "^1.9.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.9.4",
+    "@types/earcut": "^3.0.0",
+    "@types/file-saver": "^2.0.7",
+    "@types/lodash": "4.17.0",
+    "@types/luxon": "^3.4.2",
+    "@types/suncalc": "^1.9.2",
+    "prettier": "3.2.5",
+    "typescript": "^5.4.3",
+    "vite": "5.4.11"
+  }
+}

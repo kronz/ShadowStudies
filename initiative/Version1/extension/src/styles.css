@@ -1,0 +1,122 @@
+body {
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1 {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  height: 48px;
+  font-size: 12px;
+}
+
+weave-button {
+  width: 100%;
+}
+
+weave-select {
+  height: 24px;
+  width: 100%;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+
+  height: 36px;
+}
+
+.row-title {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.row-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: baseline;
+
+  width: 70%;
+  max-width: 70%;
+}
+
+.helpText {
+  display: flex;
+  justify-content: flex-end;
+
+  width: 20px;
+
+  font-weight: 600;
+  font-size: 11px;
+
+  color: #3c3c3cb2;
+}
+
+.color-picker {
+  margin-left: 10px;
+  width: 40%;
+  cursor: pointer;
+  border: none;
+  block-size: 20px;
+  padding: 0;
+  background-color: transparent;
+}
+
+.section-header {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #3c3c3cb2;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.mode-toggle weave-button {
+  flex: 1;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr;
+  gap: 4px;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.matrix-grid .matrix-header {
+  font-weight: 700;
+  text-align: center;
+  font-size: 10px;
+  color: #3c3c3cb2;
+}
+
+.matrix-grid .matrix-row-label {
+  font-weight: 600;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.matrix-grid .matrix-cell {
+  text-align: center;
+  font-size: 10px;
+  padding: 2px 4px;
+  background: #f5f5f5;
+  border-radius: 2px;
+}

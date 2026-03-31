@@ -1,0 +1,52 @@
+# Knowledge Base Configuration
+
+# Knowledge Base Type
+kb_type: "file_based"  # Options: file_based, vector_db
+
+# File-Based Knowledge Base Settings
+file_based:
+  base_path: "knowledge_base"
+  structure:
+    by_topic: true
+    by_speaker: true
+    by_company: true
+  index_file: "search_index.json"
+  master_index: "master_index.md"
+
+# Categorization Settings
+auto_categorize: true
+min_confidence: 0.7
+
+# Search Settings
+search:
+  case_sensitive: false
+  fuzzy_matching: true
+  max_results: 50
+
+# Topics for Auto-Categorization
+topics:
+  - product_market_fit
+  - ai_tools
+  - computational_design
+  - workflow_automation
+  - team_management
+  - product_strategy
+  - user_research
+  - pricing_strategy
+  - competitive_analysis
+  - technical_debt
+  - platform_development
+  - design_systems
+  - sustainability
+  - bim_workflows
+  - visual_programming
+  - interoperability
+
+# Vector Database Settings (Optional)
+vector_db:
+  type: "chromadb"
+  persist_directory: "knowledge_base/vector_db"
+  collection_name: "transcript_summaries"
+  embedding_model: "all-MiniLM-L6-v2"
+  chunk_size: 1000
+  chunk_overlap: 200

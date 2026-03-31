@@ -1,0 +1,49 @@
+# Dependencies (reinstallable via npm install)
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Editor / IDE state
+.vscode/
+.cursor/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude / AI tool state (changes constantly, not project code)
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env
+*.local
+
+# Vite cache
+.vite/
+
+# MCP descriptors (auto-generated)
+mcps/
+
+# Agent transcripts
+agent-transcripts/
+
+# Terminal state
+terminals/
+
+# Large binaries (over GitHub's 100MB limit)
+tools/
+*.exe
+
+# Specific large files
+content/SunStudies/Brentwood Amended Conceptual Master Plan.pdf
