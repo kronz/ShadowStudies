@@ -38,9 +38,9 @@ export default function App() {
   const [designPaths, setDesignPaths] = useState<string[]>([]);
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
-    contextShadowEnabled: false,
+    contextShadowEnabled: true,
     contextShadowColor: "#b8cdab",
-    designShadowEnabled: false,
+    designShadowEnabled: true,
     designShadowColor: "#004343",
   });
 
@@ -56,105 +56,118 @@ export default function App() {
 
   return (
     <>
-      <h1>Shadow study v3.009</h1>
+      <h1>Shadow study v3.011</h1>
 
-      <DesignBuildingSelector
-        designPaths={designPaths}
-        onDesignPathsChange={setDesignPaths}
-      />
+      <weave-accordion label="Design Buildings" expanded>
+        <DesignBuildingSelector
+          designPaths={designPaths}
+          onDesignPathsChange={setDesignPaths}
+        />
+      </weave-accordion>
 
-      <div class="section-header">Export Mode</div>
-      <div class="mode-toggle">
-        <weave-button
-          variant={exportMode === "matrix" ? "solid" : "outlined"}
-          onClick={() => setExportMode("matrix")}
-        >
-          3×3 Matrix
-        </weave-button>
-        <weave-button
-          variant={exportMode === "custom" ? "solid" : "outlined"}
-          onClick={() => setExportMode("custom")}
-        >
-          Custom Range
-        </weave-button>
-      </div>
+      <weave-accordion label="Analysis Area" expanded>
+        <ShadowROIAnalysis
+          shadowVersion={shadowVersion}
+          month={exportMode === "matrix" ? 6 : month}
+          day={exportMode === "matrix" ? 21 : day}
+        />
+      </weave-accordion>
 
-      {exportMode === "matrix" ? (
-        <MatrixSelector config={matrixConfig} onConfigChange={setMatrixConfig} />
-      ) : (
-        <>
-          <DateSelector month={month} setMonth={setMonth} day={day} setDay={setDay} />
-          <TimeSelector
+      <weave-accordion label="Export Settings">
+        <div class="mode-toggle">
+          <weave-button
+            variant={exportMode === "matrix" ? "solid" : "outlined"}
+            onClick={() => setExportMode("matrix")}
+          >
+            3×3 Matrix
+          </weave-button>
+          <weave-button
+            variant={exportMode === "custom" ? "solid" : "outlined"}
+            onClick={() => setExportMode("custom")}
+          >
+            Custom Range
+          </weave-button>
+        </div>
+
+        {exportMode === "matrix" ? (
+          <MatrixSelector config={matrixConfig} onConfigChange={setMatrixConfig} />
+        ) : (
+          <>
+            <DateSelector month={month} setMonth={setMonth} day={day} setDay={setDay} />
+            <TimeSelector
+              startHour={startHour}
+              setStartHour={setStartHour}
+              startMinute={startMinute}
+              setStartMinute={setStartMinute}
+              endHour={endHour}
+              setEndHour={setEndHour}
+              endMinute={endMinute}
+              setEndMinute={setEndMinute}
+            />
+            <IntervalSelector interval={interval} setInterval={setInterval} />
+          </>
+        )}
+
+        <ResolutionSelector resolution={resolution} setResolution={setResolution} />
+        <CellSizeSelector cellSize={cellSize} setCellSize={setCellSize} />
+      </weave-accordion>
+
+      <weave-accordion label="Shadow Colors">
+        <ColorControls
+          designPaths={designPaths}
+          onShadowSettingsChange={handleShadowSettingsChange}
+          onBuildingColorsChange={handleBuildingColorsChange}
+        />
+      </weave-accordion>
+
+      <weave-accordion label="Preview & Export">
+        {exportMode === "custom" && (
+          <PreviewButton
+            month={month}
+            day={day}
             startHour={startHour}
-            setStartHour={setStartHour}
             startMinute={startMinute}
-            setStartMinute={setStartMinute}
             endHour={endHour}
-            setEndHour={setEndHour}
             endMinute={endMinute}
-            setEndMinute={setEndMinute}
+            interval={interval}
           />
-          <IntervalSelector interval={interval} setInterval={setInterval} />
-        </>
-      )}
+        )}
 
-      <ResolutionSelector resolution={resolution} setResolution={setResolution} />
-      <CellSizeSelector cellSize={cellSize} setCellSize={setCellSize} />
+        <ShadowPreviewButton
+          month={exportMode === "matrix" ? 6 : month}
+          day={exportMode === "matrix" ? 21 : day}
+          shadowSettings={shadowSettings}
+          designPaths={designPaths}
+          cellSize={cellSize}
+          onShadowReady={() => setShadowVersion((v) => v + 1)}
+        />
 
-      <ColorControls
-        designPaths={designPaths}
-        onShadowSettingsChange={handleShadowSettingsChange}
-        onBuildingColorsChange={handleBuildingColorsChange}
-      />
-
-      {exportMode === "custom" && (
-        <PreviewButton
+        <ExportButton
+          mode={exportMode}
           month={month}
           day={day}
           startHour={startHour}
           startMinute={startMinute}
           endHour={endHour}
           endMinute={endMinute}
+          resolution={resolution}
           interval={interval}
+          matrixConfig={matrixConfig}
+          shadowSettings={shadowSettings}
+          buildingColors={buildingColors}
+          designPaths={designPaths}
+          cellSize={cellSize}
         />
-      )}
 
-      <ShadowPreviewButton
-        month={exportMode === "matrix" ? 6 : month}
-        day={exportMode === "matrix" ? 21 : day}
-        shadowSettings={shadowSettings}
-        designPaths={designPaths}
-        cellSize={cellSize}
-        onShadowReady={() => setShadowVersion((v) => v + 1)}
-      />
-
-      <ExportButton
-        mode={exportMode}
-        month={month}
-        day={day}
-        startHour={startHour}
-        startMinute={startMinute}
-        endHour={endHour}
-        endMinute={endMinute}
-        resolution={resolution}
-        interval={interval}
-        matrixConfig={matrixConfig}
-        shadowSettings={shadowSettings}
-        buildingColors={buildingColors}
-        designPaths={designPaths}
-        cellSize={cellSize}
-      />
-
-      <ButterflyExportButton
-        month={exportMode === "matrix" ? 6 : month}
-        day={exportMode === "matrix" ? 21 : day}
-        resolution={resolution}
-        shadowSettings={shadowSettings}
-        designPaths={designPaths}
-        cellSize={cellSize}
-      />
-
-      <ShadowROIAnalysis shadowVersion={shadowVersion} />
+        <ButterflyExportButton
+          month={exportMode === "matrix" ? 6 : month}
+          day={exportMode === "matrix" ? 21 : day}
+          resolution={resolution}
+          shadowSettings={shadowSettings}
+          designPaths={designPaths}
+          cellSize={cellSize}
+        />
+      </weave-accordion>
     </>
   );
 }

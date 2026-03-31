@@ -18,6 +18,14 @@ namespace JSX {
       value: any;
       children?: JSX.Element | string;
     };
+    "weave-accordion": JSX.HTMLAttributes<HTMLElement> & {
+      label?: string;
+      expanded?: boolean;
+      disabled?: boolean;
+      indicator?: "caret" | "plusminus";
+      indicatorposition?: "left" | "right";
+      children?: any;
+    };
     "weave-checkbox": {
       onChange?: (e: CustomEvent) => void;
       children?: JSX.Element | string;

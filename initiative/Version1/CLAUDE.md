@@ -110,10 +110,12 @@ Shadow polygon = Minkowski sum of building footprint with shadow line segment. C
 
 ## Current Status
 
-**Last Updated**: 2026-03-16 22:00
+**Last Updated**: 2026-03-31 (version control); 2026-03-16 22:00 (code)
 
 - **Progress**: Approach C fully implemented. All core modules built: building geometry extraction, sun position computation, shadow projection, polygon boolean operations, area calculation, live preview, export pipeline, and butterfly diagram generation. TypeScript typecheck and Vite build pass cleanly.
-- **Recent Changes**: Replaced pixel-differencing and sun-analysis approaches with computed shadow geometry pipeline. Added suncalc, polyclip-ts, and earcut dependencies. Added area metrics display in preview. Added butterfly diagram export.
+- **Recent Changes**: 
+  - (2026-03-31) Git version control initialized. Baseline commit `7976393` captures all V1 and V3 code. Repo published to GitHub (private) via GitHub Desktop. Checkpoint/rollback workflow established.
+  - (2026-03-16) Replaced pixel-differencing and sun-analysis approaches with computed shadow geometry pipeline. Added suncalc, polyclip-ts, and earcut dependencies. Added area metrics display in preview. Added butterfly diagram export.
 - **Next Milestone**: Integration testing in a live Forma project to validate:
   1. `Forma.geometry.getFootprint()` returns usable polygon data for buildings
   2. `Forma.geometry.getTriangles()` height derivation is correct
@@ -160,6 +162,14 @@ Shadow polygon = Minkowski sum of building footprint with shadow line segment. C
   - *Key Insights*: Rich discussion of real-world submittal examples (Seattle EDG, Canadian rezoning); color choices are strategic/narrative; net-new shadow polygons needed for area quantification
 
 ## Lessons Learned
+
+### Version Control & Rollback
+- **Git is initialized at the workspace root** (`c:\Users\kronz\OneDrive - Autodesk\ShadowStudies`). Baseline commit `7976393` captures the full project state as of 2026-03-31.
+- **GitHub Desktop is the primary interface** for commits, diffs, and rollbacks. No command-line git knowledge required.
+- **Checkpoint workflow**: Before risky changes, commit in GitHub Desktop with a descriptive summary and push. To roll back, use History tab > right-click > "Revert Changes in Commit".
+- **Say "let's checkpoint"** at the start of a Cursor session to have the AI commit the current state before experimenting.
+- **`.gitignore` excludes**: `node_modules/`, `.cursor/`, `.claude/`, `mcps/`, `agent-transcripts/`, `terminals/`, `dist/`, `tools/`, `*.exe`, and one 262 MB PDF (`Brentwood Amended Conceptual Master Plan.pdf`). These are either reinstallable, auto-generated, or over GitHub's 100 MB file limit.
+- **The repo lives on OneDrive**, which is fine for single-user/single-machine. The GitHub remote is the canonical backup if OneDrive ever corrupts `.git` internals.
 
 ### Build & Dependency Gotchas
 - **`@preact/preset-vite` and `vite` versions are tightly coupled.** Running `npm install` without pinned versions pulled `@preact/preset-vite@2.10.4` + `vite@5.4.21`, which produced a build-time crash: `TypeError: Cannot use 'in' operator to search for 'meta' in undefined`. The working pair is `@preact/preset-vite@2.9.4` + `vite@5.4.11`. These are pinned in `package.json` — do not upgrade either independently.
@@ -223,3 +233,4 @@ Shadow polygon = Minkowski sum of building footprint with shadow line segment. C
 - **Design System**: Weave (Autodesk Forma design components)
 - **Shadow Computation**: suncalc (sun position), polyclip-ts (polygon booleans), earcut (triangulation)
 - **Utilities**: Luxon (timezone), JSZip (export), file-saver (download), Lodash (utilities)
+- **Version Control**: Git + GitHub Desktop (private repo on GitHub, managed via Desktop UI)

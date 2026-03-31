@@ -50,16 +50,16 @@ type ColorControlsProps = {
 };
 
 export default function ColorControls({ designPaths: designPathOverrides, onShadowSettingsChange, onBuildingColorsChange }: ColorControlsProps) {
-  const [contextBuildingEnabled, setContextBuildingEnabled] = useState(false);
+  const [contextBuildingEnabled, setContextBuildingEnabled] = useState(true);
   const [contextBuildingColor, setContextBuildingColor] = useState("#e5c185");
-  const [designBuildingEnabled, setDesignBuildingEnabled] = useState(false);
+  const [designBuildingEnabled, setDesignBuildingEnabled] = useState(true);
   const [designBuildingColor, setDesignBuildingColor] = useState("#f0daa5");
-  const [terrainEnabled, setTerrainEnabled] = useState(false);
+  const [terrainEnabled, setTerrainEnabled] = useState(true);
   const [terrainColor, setTerrainColor] = useState("#fbf2c4");
 
-  const [contextShadowEnabled, setContextShadowEnabled] = useState(false);
+  const [contextShadowEnabled, setContextShadowEnabled] = useState(true);
   const [contextShadowColor, setContextShadowColor] = useState("#b8cdab");
-  const [designShadowEnabled, setDesignShadowEnabled] = useState(false);
+  const [designShadowEnabled, setDesignShadowEnabled] = useState(true);
   const [designShadowColor, setDesignShadowColor] = useState("#004343");
 
   const [designPaths, setDesignPaths] = useState<string[]>([]);
