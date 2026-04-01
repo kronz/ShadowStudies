@@ -13,6 +13,7 @@ export type BuildingMesh = {
   triangles: Triangle3D[];
   aabb: AABB;
   isDesign: boolean;
+  isPlanned: boolean;
   footprint: [number, number][];
 };
 
@@ -125,7 +126,7 @@ async function processElement(
 
   return {
     type: "building",
-    building: { path, triangles, aabb, isDesign, footprint },
+    building: { path, triangles, aabb, isDesign, isPlanned: false, footprint },
   };
 }
 
@@ -171,6 +172,7 @@ async function extractDesignBuildings(
       triangles,
       aabb,
       isDesign: true,
+      isPlanned: false,
       footprint: footprint ?? [],
     });
     console.log(
@@ -194,6 +196,7 @@ async function extractDesignBuildings(
 export async function extractSceneGeometry(
   onProgress?: (msg: string) => void,
   designPathOverrides?: string[],
+  plannedPaths?: string[],
 ): Promise<SceneGeometry> {
   onProgress?.("Fetching element tree...");
   const allEntryPaths = await getAllPaths();
@@ -227,6 +230,21 @@ export async function extractSceneGeometry(
     );
   }
 
+  if (plannedPaths && plannedPaths.length > 0) {
+    const plannedBuildings = await extractDesignBuildings(
+      plannedPaths,
+      onProgress,
+    );
+    for (const b of plannedBuildings) {
+      b.isDesign = false;
+      b.isPlanned = true;
+    }
+    buildings.push(...plannedBuildings);
+    console.log(
+      `[shadow] Added ${plannedBuildings.length} planned buildings from ${plannedPaths.length} selection paths`,
+    );
+  }
+
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -255,9 +273,10 @@ export async function extractSceneGeometry(
   maxY += expand;
 
   const dCount = buildings.filter((b) => b.isDesign).length;
-  const cCount = buildings.filter((b) => !b.isDesign).length;
+  const pCount = buildings.filter((b) => b.isPlanned).length;
+  const cCount = buildings.filter((b) => !b.isDesign && !b.isPlanned).length;
   onProgress?.(
-    `Extracted ${buildings.length} buildings (${dCount} design, ${cCount} context).`,
+    `Extracted ${buildings.length} buildings (${dCount} design, ${pCount} planned, ${cCount} context).`,
   );
 
   return {

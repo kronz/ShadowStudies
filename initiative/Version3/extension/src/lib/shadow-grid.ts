@@ -1,4 +1,4 @@
-import type { AnalysisGrid } from "./analysis-grid";
+import type { AnalysisGrid, GridCell } from "./analysis-grid";
 import type { SunPosition } from "./sun-position";
 import type { BuildingMesh } from "./scene-geometry";
 import { ShadowClass } from "./ray-caster";
@@ -6,6 +6,7 @@ import { ShadowClass } from "./ray-caster";
 export type ShadowAreas = {
   contextShadowArea: number;
   designOnlyShadowArea: number;
+  plannedShadowArea: number;
   totalShadowArea: number;
 };
 
@@ -16,27 +17,60 @@ export type ShadowGridResult = {
   date: Date;
   areas: ShadowAreas;
   buildings: BuildingMesh[];
+  /** Refined sub-cells for boundary smoothing (optional). */
+  refinedCells?: GridCell[];
+  refinedClassifications?: Uint8Array;
+  refinedCellSize?: number;
+  /** Maps each refined sub-cell back to its parent base-grid index. */
+  refinedParentMap?: Uint32Array;
+  /** Per-cell coverage fraction for anti-aliased rendering (optional). */
+  coverage?: Float32Array;
 };
 
 /**
  * Computes shadow area metrics from the classification array.
+ * When refinement data is provided, boundary cells in the base grid are
+ * replaced by their 4 refined sub-cells at the smaller cell area.
  */
 export function computeShadowAreas(
   classifications: Uint8Array,
   cellArea: number,
+  refinement?: {
+    refinedClassifications: Uint8Array;
+    refinedCellArea: number;
+    refinedParentMap: Uint32Array;
+  },
 ): ShadowAreas {
-  let contextCount = 0;
-  let designCount = 0;
+  const refinedParents = new Set<number>();
+  let contextArea = 0;
+  let designArea = 0;
+  let plannedArea = 0;
+
+  if (refinement) {
+    for (let i = 0; i < refinement.refinedParentMap.length; i++) {
+      refinedParents.add(refinement.refinedParentMap[i]);
+    }
+    for (let i = 0; i < refinement.refinedClassifications.length; i++) {
+      const cls = refinement.refinedClassifications[i];
+      if (cls === ShadowClass.ContextShadow) contextArea += refinement.refinedCellArea;
+      else if (cls === ShadowClass.DesignShadow) designArea += refinement.refinedCellArea;
+      else if (cls === ShadowClass.PlannedShadow) plannedArea += refinement.refinedCellArea;
+    }
+  }
 
   for (let i = 0; i < classifications.length; i++) {
-    if (classifications[i] === ShadowClass.ContextShadow) contextCount++;
-    else if (classifications[i] === ShadowClass.DesignShadow) designCount++;
+    if (refinedParents.has(i)) continue;
+    const cls = classifications[i];
+    if (cls === ShadowClass.ContextShadow) contextArea += cellArea;
+    else if (cls === ShadowClass.DesignShadow) designArea += cellArea;
+    else if (cls === ShadowClass.PlannedShadow) plannedArea += cellArea;
   }
 
   return {
-    contextShadowArea: contextCount * cellArea,
-    designOnlyShadowArea: designCount * cellArea,
-    totalShadowArea: (contextCount + designCount) * cellArea,
+    contextShadowArea: contextArea,
+    designOnlyShadowArea: designArea,
+    plannedShadowArea: plannedArea,
+    totalShadowArea: contextArea + designArea + plannedArea,
   };
 }
 
@@ -49,9 +83,11 @@ export type ROIResult = {
   shadowCells: number;
   designShadowCells: number;
   contextShadowCells: number;
+  plannedShadowCells: number;
   percentage: number;
   designPercentage: number;
   contextPercentage: number;
+  plannedPercentage: number;
   roiArea: number;
   shadowArea: number;
 };
@@ -89,17 +125,20 @@ export function computeShadowPercentageInRegion(
   let totalCells = 0;
   let contextShadowCells = 0;
   let designShadowCells = 0;
+  let plannedShadowCells = 0;
 
   for (let i = 0; i < grid.cells.length; i++) {
     const cell = grid.cells[i];
     if (!pointInPolygon(cell.x, cell.y, polygon)) continue;
 
     totalCells++;
-    if (classifications[i] === ShadowClass.ContextShadow) contextShadowCells++;
-    else if (classifications[i] === ShadowClass.DesignShadow) designShadowCells++;
+    const cls = classifications[i];
+    if (cls === ShadowClass.ContextShadow) contextShadowCells++;
+    else if (cls === ShadowClass.DesignShadow) designShadowCells++;
+    else if (cls === ShadowClass.PlannedShadow) plannedShadowCells++;
   }
 
-  const shadowCells = contextShadowCells + designShadowCells;
+  const shadowCells = contextShadowCells + designShadowCells + plannedShadowCells;
   const cellArea = grid.cellSize * grid.cellSize;
 
   return {
@@ -107,9 +146,11 @@ export function computeShadowPercentageInRegion(
     shadowCells,
     designShadowCells,
     contextShadowCells,
+    plannedShadowCells,
     percentage: totalCells > 0 ? (shadowCells / totalCells) * 100 : 0,
     designPercentage: totalCells > 0 ? (designShadowCells / totalCells) * 100 : 0,
     contextPercentage: totalCells > 0 ? (contextShadowCells / totalCells) * 100 : 0,
+    plannedPercentage: totalCells > 0 ? (plannedShadowCells / totalCells) * 100 : 0,
     roiArea: totalCells * cellArea,
     shadowArea: shadowCells * cellArea,
   };

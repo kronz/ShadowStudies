@@ -24,13 +24,19 @@ export async function clearShadowPreview(): Promise<void> {
 }
 
 export type ShadowPreviewOptions = {
-  month: number;
-  day: number;
+  /** If provided, constructs noon on this month/day. Otherwise uses Forma.sun.getDate(). */
+  month?: number;
+  day?: number;
+  /** Explicit date override — takes priority over month/day and Forma sun date. */
+  dateOverride?: Date;
   designShadowEnabled: boolean;
   designShadowColor: string;
   contextShadowEnabled: boolean;
   contextShadowColor: string;
+  plannedShadowEnabled?: boolean;
+  plannedShadowColor?: string;
   designPaths?: string[];
+  plannedPaths?: string[];
   cellSize?: number;
   onProgress?: (message: string) => void;
 };
@@ -39,9 +45,32 @@ export type ShadowPreviewResult = {
   areas: {
     contextShadowArea: number;
     designOnlyShadowArea: number;
+    plannedShadowArea: number;
     totalShadowArea: number;
   };
+  /** The actual date/time used for the preview. */
+  dateUsed: Date;
 };
+
+/**
+ * Resolves the preview date from options, falling back to Forma.sun.getDate().
+ */
+async function resolvePreviewDate(options: ShadowPreviewOptions): Promise<Date> {
+  if (options.dateOverride) return options.dateOverride;
+
+  if (options.month !== undefined && options.day !== undefined) {
+    const projectTimezone = await Forma.project.getTimezone();
+    if (!projectTimezone) throw new Error("Unable to access project timezone");
+    const currentSunDate = await Forma.sun.getDate();
+    const year = currentSunDate.getFullYear();
+    return DateTime.fromObject(
+      { year, month: options.month, day: options.day, hour: 12, minute: 0 },
+      { zone: projectTimezone },
+    ).toJSDate();
+  }
+
+  return Forma.sun.getDate();
+}
 
 /**
  * Computes shadows via ray casting and renders them as colored grid
@@ -52,37 +81,29 @@ export async function renderShadowPreview(
 ): Promise<ShadowPreviewResult> {
   await clearShadowPreview();
 
-  const { month, day, onProgress } = options;
+  const { onProgress } = options;
 
-  const projectTimezone = await Forma.project.getTimezone();
-  if (!projectTimezone) {
-    throw new Error("Unable to access project timezone");
-  }
+  const previewDate = await resolvePreviewDate(options);
 
-  const currentSunDate = await Forma.sun.getDate();
-  const year = currentSunDate.getFullYear();
-
-  const noonDate = DateTime.fromObject(
-    { year, month, day, hour: 12, minute: 0 },
-    { zone: projectTimezone },
-  ).toJSDate();
-
-  const cache = await prepareScene(onProgress, options.cellSize, options.designPaths);
+  const cache = await prepareScene(onProgress, options.cellSize, options.designPaths, options.plannedPaths);
 
   onProgress?.("Computing sun position...");
-  const sun = await getSunPositionForProject(noonDate);
+  const sun = await getSunPositionForProject(previewDate);
 
   if (sun.altitude <= 0) {
     onProgress?.("Sun is below the horizon.");
-    return { areas: { contextShadowArea: 0, designOnlyShadowArea: 0, totalShadowArea: 0 } };
+    return {
+      areas: { contextShadowArea: 0, designOnlyShadowArea: 0, plannedShadowArea: 0, totalShadowArea: 0 },
+      dateUsed: previewDate,
+    };
   }
 
   onProgress?.("Casting shadow rays...");
-  const result = await computeShadowGridAsync(cache, sun, noonDate, onProgress);
+  const result = await computeShadowGridAsync(cache, sun, previewDate, onProgress);
   lastShadowResult = result;
 
   onProgress?.("Rendering shadow grid meshes...");
-  const meshes = buildShadowMeshes(result.grid, result.classifications, options);
+  const meshes = buildShadowMeshes(result.grid, result.classifications, options, result);
 
   for (const mesh of meshes) {
     const { id } = await Forma.render.addMesh({ geometryData: mesh.geometryData });
@@ -90,5 +111,5 @@ export async function renderShadowPreview(
   }
 
   onProgress?.("Shadow preview ready.");
-  return { areas: result.areas };
+  return { areas: result.areas, dateUsed: previewDate };
 }

@@ -14,6 +14,7 @@ type ButterflyExportButtonProps = {
   resolution: string;
   shadowSettings: ShadowColorSettings;
   designPaths?: string[];
+  plannedPaths?: string[];
   cellSize?: number;
 };
 
@@ -68,6 +69,8 @@ export default function ButterflyExportButton({
         contextShadowColor: shadowSettings.contextShadowColor,
         designShadowEnabled: shadowSettings.designShadowEnabled,
         designShadowColor: shadowSettings.designShadowColor,
+        plannedShadowEnabled: shadowSettings.plannedShadowEnabled,
+        plannedShadowColor: shadowSettings.plannedShadowColor,
       });
 
       canvas.toBlob((blob) => {

@@ -1,6 +1,7 @@
 import type { Vec3, AABB, BuildingMesh } from "./scene-geometry";
-import type { AnalysisGrid } from "./analysis-grid";
+import type { AnalysisGrid, GridCell } from "./analysis-grid";
 import type { SunPosition } from "./sun-position";
+import { traverseBVH, type FlatBVH } from "./bvh";
 
 /**
  * Shadow classification per grid cell.
@@ -9,6 +10,7 @@ export const enum ShadowClass {
   Sunlit = 0,
   ContextShadow = 1,
   DesignShadow = 2,
+  PlannedShadow = 3,
 }
 
 /**
@@ -41,7 +43,7 @@ const EPSILON = 1e-8;
  *
  * Ray: origin + t * direction, t > 0
  */
-function rayTriangleIntersect(
+export function rayTriangleIntersect(
   origin: Vec3,
   dir: Vec3,
   v0: Vec3,
@@ -56,7 +58,6 @@ function rayTriangleIntersect(
   const edge2y = v2[1] - v0[1];
   const edge2z = v2[2] - v0[2];
 
-  // h = dir × edge2
   const hx = dir[1] * edge2z - dir[2] * edge2y;
   const hy = dir[2] * edge2x - dir[0] * edge2z;
   const hz = dir[0] * edge2y - dir[1] * edge2x;
@@ -72,7 +73,6 @@ function rayTriangleIntersect(
   const u = f * (sx * hx + sy * hy + sz * hz);
   if (u < 0 || u > 1) return -1;
 
-  // q = s × edge1
   const qx = sy * edge1z - sz * edge1y;
   const qy = sz * edge1x - sx * edge1z;
   const qz = sx * edge1y - sy * edge1x;
@@ -90,7 +90,7 @@ function rayTriangleIntersect(
 // AABB-ray intersection (slab method)
 // ────────────────────────────────────────────────────────────
 
-function rayAABBIntersect(origin: Vec3, invDir: Vec3, aabb: AABB): boolean {
+export function rayAABBIntersect(origin: Vec3, invDir: Vec3, aabb: AABB): boolean {
   let tmin = -Infinity;
   let tmax = Infinity;
 
@@ -107,28 +107,86 @@ function rayAABBIntersect(origin: Vec3, invDir: Vec3, aabb: AABB): boolean {
 }
 
 // ────────────────────────────────────────────────────────────
+// Single-point classification helper
+// ────────────────────────────────────────────────────────────
+
+function testBuildingHit(
+  building: BuildingMesh,
+  origin: Vec3,
+  dir: Vec3,
+): boolean {
+  for (const tri of building.triangles) {
+    if (rayTriangleIntersect(origin, dir, tri[0], tri[1], tri[2]) > 0) return true;
+  }
+  return false;
+}
+
+function classifyPoint(
+  origin: Vec3,
+  dir: Vec3,
+  invDir: Vec3,
+  buildings: BuildingMesh[],
+  bvh?: FlatBVH,
+): ShadowClass {
+  let hitDesign = false;
+  let hitPlanned = false;
+  let hitContext = false;
+
+  const checkBuilding = (building: BuildingMesh) => {
+    if (testBuildingHit(building, origin, dir)) {
+      if (building.isDesign) hitDesign = true;
+      else if (building.isPlanned) hitPlanned = true;
+      else hitContext = true;
+    }
+  };
+
+  if (bvh) {
+    traverseBVH(bvh, origin, invDir, (idx) => {
+      const building = buildings[idx];
+      if (rayAABBIntersect(origin, invDir, building.aabb)) {
+        checkBuilding(building);
+      }
+    });
+  } else {
+    for (const building of buildings) {
+      if (!rayAABBIntersect(origin, invDir, building.aabb)) continue;
+      checkBuilding(building);
+    }
+  }
+
+  if (hitDesign) return ShadowClass.DesignShadow;
+  if (hitPlanned) return ShadowClass.PlannedShadow;
+  if (hitContext) return ShadowClass.ContextShadow;
+  return ShadowClass.Sunlit;
+}
+
+// ────────────────────────────────────────────────────────────
 // Main ray casting
 // ────────────────────────────────────────────────────────────
+
+const Z_OFFSET = 0.3;
+
+function computeInvDir(dir: Vec3): Vec3 {
+  return [
+    Math.abs(dir[0]) < EPSILON ? 1e12 : 1 / dir[0],
+    Math.abs(dir[1]) < EPSILON ? 1e12 : 1 / dir[1],
+    Math.abs(dir[2]) < EPSILON ? 1e12 : 1 / dir[2],
+  ];
+}
 
 /**
  * For each grid cell, casts a ray toward the sun and tests for
  * intersection against building meshes. Returns a Uint8Array of
  * ShadowClass values (one per cell).
  *
- * Algorithm (same as Radiance's rtrace):
- * 1. Compute sun direction vector
- * 2. For each analysis grid cell:
- *    a. Ray origin = cell center (x, y, z + small offset above terrain)
- *    b. Ray direction = toward sun
- *    c. Test AABB of each building — skip if ray misses bounding box
- *    d. For buildings whose AABB is hit, run Moller-Trumbore on each triangle
- *    e. If any triangle hit: classify by whether the building is design or context
- *       (design shadow takes priority over context shadow)
+ * When a BVH is provided, ray-building intersection uses BVH traversal
+ * instead of linear scan.
  */
 export function castShadowRays(
   grid: AnalysisGrid,
   buildings: BuildingMesh[],
   sun: SunPosition,
+  bvh?: FlatBVH,
 ): Uint8Array {
   const cellCount = grid.cells.length;
   const classifications = new Uint8Array(cellCount);
@@ -136,48 +194,69 @@ export function castShadowRays(
   if (sun.altitude <= 0) return classifications;
 
   const dir = sunDirectionVector(sun);
-  const invDir: Vec3 = [
-    Math.abs(dir[0]) < EPSILON ? 1e12 : 1 / dir[0],
-    Math.abs(dir[1]) < EPSILON ? 1e12 : 1 / dir[1],
-    Math.abs(dir[2]) < EPSILON ? 1e12 : 1 / dir[2],
-  ];
-
-  const Z_OFFSET = 0.3;
+  const invDir = computeInvDir(dir);
 
   for (let i = 0; i < cellCount; i++) {
     const cell = grid.cells[i];
     const origin: Vec3 = [cell.x, cell.y, cell.z + Z_OFFSET];
+    classifications[i] = classifyPoint(origin, dir, invDir, buildings, bvh);
+  }
 
-    let hitDesign = false;
-    let hitContext = false;
+  return classifications;
+}
 
-    for (const building of buildings) {
-      if (!rayAABBIntersect(origin, invDir, building.aabb)) continue;
+// ────────────────────────────────────────────────────────────
+// Multi-sample anti-aliasing for boundary cells
+// ────────────────────────────────────────────────────────────
 
-      let hitThisBuilding = false;
-      for (const tri of building.triangles) {
-        const t = rayTriangleIntersect(origin, dir, tri[0], tri[1], tri[2]);
-        if (t > 0) {
-          hitThisBuilding = true;
-          break;
-        }
-      }
+/**
+ * For each cell, casts 4 rays at ±¼ cell offsets and returns:
+ *  - classifications: majority-vote shadow class per cell
+ *  - coverage: fraction of rays that hit shadow (0.0–1.0) per cell
+ */
+export function castMultiSampleRays(
+  cells: GridCell[],
+  cellSize: number,
+  buildings: BuildingMesh[],
+  sun: SunPosition,
+  bvh?: FlatBVH,
+): { classifications: Uint8Array; coverage: Float32Array } {
+  const count = cells.length;
+  const classifications = new Uint8Array(count);
+  const coverage = new Float32Array(count);
 
-      if (hitThisBuilding) {
-        if (building.isDesign) {
-          hitDesign = true;
-        } else {
-          hitContext = true;
-        }
-      }
+  if (sun.altitude <= 0) return { classifications, coverage };
+
+  const dir = sunDirectionVector(sun);
+  const invDir = computeInvDir(dir);
+  const q = cellSize / 4;
+  const offsets: [number, number][] = [[-q, -q], [q, -q], [-q, q], [q, q]];
+
+  for (let i = 0; i < count; i++) {
+    const cell = cells[i];
+    let designHits = 0;
+    let plannedHits = 0;
+    let contextHits = 0;
+
+    for (const [dx, dy] of offsets) {
+      const origin: Vec3 = [cell.x + dx, cell.y + dy, cell.z + Z_OFFSET];
+      const cls = classifyPoint(origin, dir, invDir, buildings, bvh);
+      if (cls === ShadowClass.DesignShadow) designHits++;
+      else if (cls === ShadowClass.PlannedShadow) plannedHits++;
+      else if (cls === ShadowClass.ContextShadow) contextHits++;
     }
 
-    if (hitDesign) {
+    const totalHits = designHits + plannedHits + contextHits;
+    coverage[i] = totalHits / 4;
+
+    if (designHits > 0) {
       classifications[i] = ShadowClass.DesignShadow;
-    } else if (hitContext) {
+    } else if (plannedHits > 0) {
+      classifications[i] = ShadowClass.PlannedShadow;
+    } else if (contextHits > 0) {
       classifications[i] = ShadowClass.ContextShadow;
     }
   }
 
-  return classifications;
+  return { classifications, coverage };
 }

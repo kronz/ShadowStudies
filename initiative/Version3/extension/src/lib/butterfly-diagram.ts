@@ -109,6 +109,8 @@ export function renderButterflyToCanvas(
     contextShadowColor: string;
     designShadowEnabled: boolean;
     designShadowColor: string;
+    plannedShadowEnabled?: boolean;
+    plannedShadowColor?: string;
     contextBuildingColor?: string;
     designBuildingColor?: string;
     bgColor?: string;
@@ -136,24 +138,53 @@ export function renderButterflyToCanvas(
   const n = result.steps.length;
   const baseAlpha = Math.min(0.35, 1.5 / n);
 
+  const drawShadowCell = (
+    cls: number,
+    cx: number,
+    cy: number,
+    size: number,
+    alpha: number,
+  ) => {
+    if (cls === ShadowClass.Sunlit) return;
+    if (cls === ShadowClass.ContextShadow && options.contextShadowEnabled) {
+      ctx.fillStyle = hexWithAlpha(options.contextShadowColor, alpha);
+      ctx.fillRect(cx, cy, size, size);
+    } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
+      ctx.fillStyle = hexWithAlpha(options.designShadowColor, alpha);
+      ctx.fillRect(cx, cy, size, size);
+    } else if (cls === ShadowClass.PlannedShadow && options.plannedShadowEnabled && options.plannedShadowColor) {
+      ctx.fillStyle = hexWithAlpha(options.plannedShadowColor, alpha);
+      ctx.fillRect(cx, cy, size, size);
+    }
+  };
+
   for (const step of result.steps) {
     if (step.result.sun.altitude <= 0) continue;
 
     const { classifications, grid } = step.result;
-    for (let i = 0; i < classifications.length; i++) {
-      const cls = classifications[i];
-      if (cls === ShadowClass.Sunlit) continue;
+    const refinedParents = new Set<number>();
+    if (step.result.refinedParentMap) {
+      for (let j = 0; j < step.result.refinedParentMap.length; j++) {
+        refinedParents.add(step.result.refinedParentMap[j]);
+      }
+    }
 
+    for (let i = 0; i < classifications.length; i++) {
+      if (refinedParents.has(i)) continue;
       const cell = grid.cells[i];
       const cx = toX(cell.x) - cellPx / 2;
       const cy = toY(cell.y) - cellPx / 2;
+      const cov = step.result.coverage ? step.result.coverage[i] : 1;
+      drawShadowCell(classifications[i], cx, cy, cellPx, baseAlpha * cov);
+    }
 
-      if (cls === ShadowClass.ContextShadow && options.contextShadowEnabled) {
-        ctx.fillStyle = hexWithAlpha(options.contextShadowColor, baseAlpha);
-        ctx.fillRect(cx, cy, cellPx, cellPx);
-      } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
-        ctx.fillStyle = hexWithAlpha(options.designShadowColor, baseAlpha);
-        ctx.fillRect(cx, cy, cellPx, cellPx);
+    if (step.result.refinedCells && step.result.refinedClassifications && step.result.refinedCellSize) {
+      const refinedPx = step.result.refinedCellSize * scale;
+      for (let i = 0; i < step.result.refinedCells.length; i++) {
+        const cell = step.result.refinedCells[i];
+        const cx = toX(cell.x) - refinedPx / 2;
+        const cy = toY(cell.y) - refinedPx / 2;
+        drawShadowCell(step.result.refinedClassifications[i], cx, cy, refinedPx, baseAlpha);
       }
     }
   }

@@ -25,6 +25,7 @@ export default function ShadowROIAnalysis({
   const [roiResult, setRoiResult] = useState<ROIResult | null>(null);
   const [status, setStatus] = useState("");
   const [capturing, setCapturing] = useState(false);
+  const [analysisTime, setAnalysisTime] = useState<string>("");
 
   useEffect(() => {
     if (!roiPolygon) return;
@@ -36,6 +37,9 @@ export default function ShadowROIAnalysis({
         roiPolygon,
       );
       setRoiResult(result);
+      setAnalysisTime(
+        shadowResult.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      );
       setStatus("");
     }
   }, [shadowVersion, roiPolygon]);
@@ -136,6 +140,11 @@ export default function ShadowROIAnalysis({
 
           {roiResult ? (
             <div style={{ fontSize: "10px", color: "#3c3c3c", padding: "4px 0" }}>
+              {analysisTime && (
+                <div style={{ fontStyle: "italic", marginBottom: "2px" }}>
+                  Analysis at {analysisTime}
+                </div>
+              )}
               <div>ROI area: {formatArea(roiResult.roiArea)}</div>
               <div style={{ fontWeight: "bold" }}>
                 Shadow coverage: {formatArea(roiResult.shadowArea)} (
@@ -149,6 +158,11 @@ export default function ShadowROIAnalysis({
               {roiResult.contextShadowCells > 0 && (
                 <div>
                   ↳ Context shadow: {roiResult.contextPercentage.toFixed(1)}%
+                </div>
+              )}
+              {roiResult.plannedShadowCells > 0 && (
+                <div>
+                  ↳ Planned shadow: {roiResult.plannedPercentage.toFixed(1)}%
                 </div>
               )}
               {roiResult.totalCells === 0 && (

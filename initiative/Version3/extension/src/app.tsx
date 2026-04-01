@@ -36,12 +36,15 @@ export default function App() {
   });
 
   const [designPaths, setDesignPaths] = useState<string[]>([]);
+  const [plannedPaths, setPlannedPaths] = useState<string[]>([]);
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
     contextShadowEnabled: true,
     contextShadowColor: "#b8cdab",
     designShadowEnabled: true,
     designShadowColor: "#004343",
+    plannedShadowEnabled: true,
+    plannedShadowColor: "#5e548e",
   });
 
   const [buildingColors, setBuildingColors] = useState<Map<string, string>>(new Map());
@@ -62,14 +65,14 @@ export default function App() {
         <DesignBuildingSelector
           designPaths={designPaths}
           onDesignPathsChange={setDesignPaths}
+          plannedPaths={plannedPaths}
+          onPlannedPathsChange={setPlannedPaths}
         />
       </weave-accordion>
 
       <weave-accordion label="Analysis Area" expanded>
         <ShadowROIAnalysis
           shadowVersion={shadowVersion}
-          month={exportMode === "matrix" ? 6 : month}
-          day={exportMode === "matrix" ? 21 : day}
         />
       </weave-accordion>
 
@@ -134,10 +137,9 @@ export default function App() {
         )}
 
         <ShadowPreviewButton
-          month={exportMode === "matrix" ? 6 : month}
-          day={exportMode === "matrix" ? 21 : day}
           shadowSettings={shadowSettings}
           designPaths={designPaths}
+          plannedPaths={plannedPaths}
           cellSize={cellSize}
           onShadowReady={() => setShadowVersion((v) => v + 1)}
         />
@@ -156,6 +158,7 @@ export default function App() {
           shadowSettings={shadowSettings}
           buildingColors={buildingColors}
           designPaths={designPaths}
+          plannedPaths={plannedPaths}
           cellSize={cellSize}
         />
 
@@ -165,6 +168,7 @@ export default function App() {
           resolution={resolution}
           shadowSettings={shadowSettings}
           designPaths={designPaths}
+          plannedPaths={plannedPaths}
           cellSize={cellSize}
         />
       </weave-accordion>

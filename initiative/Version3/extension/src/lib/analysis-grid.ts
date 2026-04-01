@@ -47,3 +47,71 @@ export function createAnalysisGrid(
 
   return { cells, cols, rows, cellSize, bounds };
 }
+
+/**
+ * Identifies cells on shadow boundaries — cells whose classification
+ * differs from at least one cardinal (N/S/E/W) neighbor.
+ */
+export function findBoundaryCells(
+  classifications: Uint8Array,
+  cols: number,
+  rows: number,
+): Set<number> {
+  const boundary = new Set<number>();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      const cls = classifications[idx];
+      if (c > 0 && classifications[idx - 1] !== cls) { boundary.add(idx); continue; }
+      if (c < cols - 1 && classifications[idx + 1] !== cls) { boundary.add(idx); continue; }
+      if (r > 0 && classifications[idx - cols] !== cls) { boundary.add(idx); continue; }
+      if (r < rows - 1 && classifications[idx + cols] !== cls) { boundary.add(idx); continue; }
+    }
+  }
+  return boundary;
+}
+
+export type SubGridResult = {
+  subGrid: AnalysisGrid;
+  /** Maps each sub-cell index to its parent cell index in the base grid. */
+  parentMap: Uint32Array;
+};
+
+/**
+ * Generates 4 sub-cells per boundary cell at half the base cell size.
+ * Sub-cell elevations are linearly interpolated from the parent cell.
+ */
+export function generateSubCells(
+  grid: AnalysisGrid,
+  boundaryIndices: Set<number>,
+): SubGridResult {
+  const subCellSize = grid.cellSize / 2;
+  const quarter = subCellSize / 2;
+  const cells: GridCell[] = [];
+  const parentIndices: number[] = [];
+
+  for (const idx of boundaryIndices) {
+    const parent = grid.cells[idx];
+    const offsets: [number, number][] = [
+      [-quarter, -quarter],
+      [quarter, -quarter],
+      [-quarter, quarter],
+      [quarter, quarter],
+    ];
+    for (const [dx, dy] of offsets) {
+      cells.push({ x: parent.x + dx, y: parent.y + dy, z: parent.z });
+      parentIndices.push(idx);
+    }
+  }
+
+  return {
+    subGrid: {
+      cells,
+      cols: cells.length,
+      rows: 1,
+      cellSize: subCellSize,
+      bounds: grid.bounds,
+    },
+    parentMap: new Uint32Array(parentIndices),
+  };
+}

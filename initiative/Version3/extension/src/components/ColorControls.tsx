@@ -41,6 +41,8 @@ export type ShadowColorSettings = {
   contextShadowColor: string;
   designShadowEnabled: boolean;
   designShadowColor: string;
+  plannedShadowEnabled: boolean;
+  plannedShadowColor: string;
 };
 
 type ColorControlsProps = {
@@ -61,6 +63,8 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
   const [contextShadowColor, setContextShadowColor] = useState("#b8cdab");
   const [designShadowEnabled, setDesignShadowEnabled] = useState(true);
   const [designShadowColor, setDesignShadowColor] = useState("#004343");
+  const [plannedShadowEnabled, setPlannedShadowEnabled] = useState(true);
+  const [plannedShadowColor, setPlannedShadowColor] = useState("#5e548e");
 
   const [designPaths, setDesignPaths] = useState<string[]>([]);
   const [contextPaths, setContextPaths] = useState<string[]>([]);
@@ -85,8 +89,10 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
       contextShadowColor,
       designShadowEnabled,
       designShadowColor,
+      plannedShadowEnabled,
+      plannedShadowColor,
     });
-  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor]);
+  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor, plannedShadowEnabled, plannedShadowColor]);
 
   useEffect(() => {
     propagateShadowSettings();
@@ -168,6 +174,13 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
         color={designShadowColor}
         onToggle={setDesignShadowEnabled}
         onColor={setDesignShadowColor}
+      />
+      <ColorRow
+        label="Planned shadows:"
+        enabled={plannedShadowEnabled}
+        color={plannedShadowColor}
+        onToggle={setPlannedShadowEnabled}
+        onColor={setPlannedShadowColor}
       />
     </>
   );

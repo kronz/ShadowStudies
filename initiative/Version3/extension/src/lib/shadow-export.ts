@@ -14,7 +14,10 @@ export type ShadowExportOptions = {
   designShadowColor: string;
   contextShadowEnabled: boolean;
   contextShadowColor: string;
+  plannedShadowEnabled?: boolean;
+  plannedShadowColor?: string;
   designPaths?: string[];
+  plannedPaths?: string[];
   cellSize?: number;
 };
 
@@ -23,7 +26,7 @@ async function addShadowMeshesToScene(
   options: ShadowExportOptions,
 ): Promise<string[]> {
   const meshIds: string[] = [];
-  const meshes = buildShadowMeshes(result.grid, result.classifications, options);
+  const meshes = buildShadowMeshes(result.grid, result.classifications, options, result);
 
   for (const mesh of meshes) {
     const { id } = await Forma.render.addMesh({ geometryData: mesh.geometryData });
@@ -65,7 +68,7 @@ export async function captureFrameWithShadows(
 
   await Forma.sun.setDate({ date });
 
-  const resolvedCache = cache ?? (await prepareScene(onProgress, options.cellSize, options.designPaths));
+  const resolvedCache = cache ?? (await prepareScene(onProgress, options.cellSize, options.designPaths, options.plannedPaths));
 
   const sun = await getSunPositionForProject(date);
   const result = await computeShadowGridAsync(resolvedCache, sun, date, onProgress);
@@ -75,12 +78,23 @@ export async function captureFrameWithShadows(
     return { canvas, result };
   }
 
+  onProgress?.("Capturing baseline frame...");
+  const baseline = await Forma.camera.capture({ width, height });
+
   onProgress?.("Rendering shadow overlay...");
   const meshIds = await addShadowMeshesToScene(result, options);
 
-  await new Promise((r) => setTimeout(r, 200));
-
-  const canvas = await Forma.camera.capture({ width, height });
+  let canvas = baseline;
+  const delays = [100, 200, 400];
+  for (const delay of delays) {
+    await new Promise((r) => setTimeout(r, delay));
+    const attempt = await Forma.camera.capture({ width, height });
+    if (framesAreDifferent(baseline, attempt)) {
+      canvas = attempt;
+      break;
+    }
+    canvas = attempt;
+  }
 
   await removeMeshes(meshIds);
 
@@ -88,8 +102,45 @@ export async function captureFrameWithShadows(
 }
 
 /**
+ * Compares two canvases by sampling ~20 evenly spaced pixels.
+ * Returns true if any sampled pixel differs by more than a threshold.
+ */
+function framesAreDifferent(
+  a: HTMLCanvasElement,
+  b: HTMLCanvasElement,
+  threshold = 10,
+): boolean {
+  const ctxA = a.getContext("2d");
+  const ctxB = b.getContext("2d");
+  if (!ctxA || !ctxB) return false;
+
+  const w = a.width;
+  const h = a.height;
+  const cols = 5;
+  const rows = 4;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = Math.floor(((c + 0.5) / cols) * w);
+      const y = Math.floor(((r + 0.5) / rows) * h);
+
+      const pixA = ctxA.getImageData(x, y, 1, 1).data;
+      const pixB = ctxB.getImageData(x, y, 1, 1).data;
+
+      const diff =
+        Math.abs(pixA[0] - pixB[0]) +
+        Math.abs(pixA[1] - pixB[1]) +
+        Math.abs(pixA[2] - pixB[2]);
+      if (diff > threshold) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Renders a pure plan-view (top-down) shadow diagram to a canvas.
- * Grid cells are rendered as colored squares.
+ * Grid cells are rendered as colored squares. Refined sub-cells
+ * replace their parent base-grid cells when present.
  */
 export function renderPlanViewDiagram(
   result: ShadowGridResult,
@@ -120,22 +171,48 @@ export function renderPlanViewDiagram(
   const toCanvasX = (x: number) => padding + (x - bounds.minX) * scale;
   const toCanvasY = (y: number) => height - padding - (y - bounds.minY) * scale;
 
+  const refinedParents = new Set<number>();
+  if (result.refinedParentMap) {
+    for (let i = 0; i < result.refinedParentMap.length; i++) {
+      refinedParents.add(result.refinedParentMap[i]);
+    }
+  }
+
   const cellPx = grid.cellSize * scale;
 
-  for (let i = 0; i < classifications.length; i++) {
-    const cls = classifications[i];
-    if (cls === ShadowClass.Sunlit) continue;
+  const drawCell = (cls: number, cx: number, cy: number, size: number, coverageVal: number) => {
+    if (cls === ShadowClass.Sunlit) return;
+    ctx.save();
+    ctx.globalAlpha = coverageVal;
+    if (cls === ShadowClass.ContextShadow && options.contextShadowEnabled) {
+      ctx.fillStyle = options.contextShadowColor + "99";
+      ctx.fillRect(cx, cy, size, size);
+    } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
+      ctx.fillStyle = options.designShadowColor + "B3";
+      ctx.fillRect(cx, cy, size, size);
+    } else if (cls === ShadowClass.PlannedShadow && options.plannedShadowEnabled && options.plannedShadowColor) {
+      ctx.fillStyle = options.plannedShadowColor + "A6";
+      ctx.fillRect(cx, cy, size, size);
+    }
+    ctx.restore();
+  };
 
+  for (let i = 0; i < classifications.length; i++) {
+    if (refinedParents.has(i)) continue;
     const cell = grid.cells[i];
     const cx = toCanvasX(cell.x) - cellPx / 2;
     const cy = toCanvasY(cell.y) - cellPx / 2;
+    const cov = result.coverage ? result.coverage[i] : 1;
+    drawCell(classifications[i], cx, cy, cellPx, cov);
+  }
 
-    if (cls === ShadowClass.ContextShadow && options.contextShadowEnabled) {
-      ctx.fillStyle = options.contextShadowColor + "99";
-      ctx.fillRect(cx, cy, cellPx, cellPx);
-    } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
-      ctx.fillStyle = options.designShadowColor + "B3";
-      ctx.fillRect(cx, cy, cellPx, cellPx);
+  if (result.refinedCells && result.refinedClassifications && result.refinedCellSize) {
+    const refinedPx = result.refinedCellSize * scale;
+    for (let i = 0; i < result.refinedCells.length; i++) {
+      const cell = result.refinedCells[i];
+      const cx = toCanvasX(cell.x) - refinedPx / 2;
+      const cy = toCanvasY(cell.y) - refinedPx / 2;
+      drawCell(result.refinedClassifications[i], cx, cy, refinedPx, 1);
     }
   }
 
@@ -144,7 +221,9 @@ export function renderPlanViewDiagram(
   for (const b of buildings) {
     ctx.fillStyle = b.isDesign
       ? (options.designBuildingColor ?? "#ffffff")
-      : (options.contextBuildingColor ?? "#d0d0d0");
+      : b.isPlanned
+        ? (options.designBuildingColor ?? "#e8e8ff")
+        : (options.contextBuildingColor ?? "#d0d0d0");
     drawPolygon(ctx, b.footprint, toCanvasX, toCanvasY);
   }
 

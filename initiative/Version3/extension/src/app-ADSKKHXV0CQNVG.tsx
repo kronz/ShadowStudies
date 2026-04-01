@@ -40,6 +40,8 @@ export default function App() {
     contextShadowColor: "#b8cdab",
     designShadowEnabled: false,
     designShadowColor: "#004343",
+    plannedShadowEnabled: false,
+    plannedShadowColor: "#5e548e",
   });
 
   const [buildingColors, setBuildingColors] = useState<Map<string, string>>(new Map());
