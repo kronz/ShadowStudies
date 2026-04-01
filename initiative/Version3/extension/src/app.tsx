@@ -40,11 +40,11 @@ export default function App() {
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
     contextShadowEnabled: true,
-    contextShadowColor: "#b8cdab",
+    contextShadowColor: "#8A7385",
     designShadowEnabled: true,
-    designShadowColor: "#004343",
+    designShadowColor: "#383D41",
     plannedShadowEnabled: true,
-    plannedShadowColor: "#5e548e",
+    plannedShadowColor: "#6F536A",
   });
 
   const [buildingColors, setBuildingColors] = useState<Map<string, string>>(new Map());
@@ -115,7 +115,7 @@ export default function App() {
         <CellSizeSelector cellSize={cellSize} setCellSize={setCellSize} />
       </weave-accordion>
 
-      <weave-accordion label="Shadow Colors">
+      <weave-accordion label="Analysis Colors">
         <ColorControls
           designPaths={designPaths}
           onShadowSettingsChange={handleShadowSettingsChange}

@@ -6,7 +6,7 @@ type CellSizeSelectorProps = {
 export default function CellSizeSelector({ cellSize, setCellSize }: CellSizeSelectorProps) {
   return (
     <div class="row">
-      <div class="row-title">Analysis</div>
+      <div class="row-title">Resolution</div>
       <div class="row-item">
         <weave-select
           value={String(cellSize)}

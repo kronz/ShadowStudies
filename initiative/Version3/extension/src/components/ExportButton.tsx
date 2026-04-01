@@ -6,6 +6,7 @@ import { useState } from "preact/hooks";
 import { MatrixConfig, getMatrixTimeSteps, matrixStepFilename } from "./MatrixSelector";
 import { captureFrameWithShadows, ShadowExportOptions } from "../lib/shadow-export";
 import { prepareScene, type SceneCache } from "../lib/shadow-pipeline";
+import { clearShadowPreview } from "../lib/shadow-preview";
 import { ShadowColorSettings } from "./ColorControls";
 
 type ExportButtonProps = {
@@ -62,6 +63,8 @@ export default function ExportButton(props: ExportButtonProps) {
   const onClickExport = async () => {
     setExporting(true);
     try {
+      await clearShadowPreview();
+
       const projectTimezone = await Forma.project.getTimezone();
       if (!projectTimezone) {
         throw new Error("Unable to access project timezone");

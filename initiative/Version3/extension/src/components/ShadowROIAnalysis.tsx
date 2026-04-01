@@ -3,51 +3,61 @@ import { useState, useEffect } from "preact/hooks";
 import { getLastShadowResult } from "../lib/shadow-preview";
 import {
   computeShadowPercentageInRegion,
-  type ROIResult,
+  type AnalysisAreaResult,
 } from "../lib/shadow-grid";
+import { getAreaFormatter } from "../lib/format-utils";
+import { renderAnalysisAreaOutline, clearAnalysisAreaOutline } from "../lib/outline-renderer";
 
 type ShadowROIAnalysisProps = {
   shadowVersion: number;
 };
 
-function formatArea(sqMeters: number): string {
-  if (sqMeters >= 10000) {
-    return `${(sqMeters / 10000).toFixed(2)} ha`;
-  }
-  return `${Math.round(sqMeters).toLocaleString()} m²`;
-}
-
 export default function ShadowROIAnalysis({
   shadowVersion,
 }: ShadowROIAnalysisProps) {
-  const [roiPolygon, setRoiPolygon] = useState<[number, number][] | null>(null);
-  const [roiLabel, setRoiLabel] = useState("");
-  const [roiResult, setRoiResult] = useState<ROIResult | null>(null);
+  const [areaPolygon, setAreaPolygon] = useState<[number, number][] | null>(null);
+  const [areaLabel, setAreaLabel] = useState("");
+  const [areaResult, setAreaResult] = useState<AnalysisAreaResult | null>(null);
   const [status, setStatus] = useState("");
   const [capturing, setCapturing] = useState(false);
   const [analysisTime, setAnalysisTime] = useState<string>("");
+  const [formatArea, setFormatArea] = useState<(sqM: number) => string>(
+    () => (sqM: number) => `${Math.round(sqM).toLocaleString()} m²`,
+  );
 
   useEffect(() => {
-    if (!roiPolygon) return;
+    getAreaFormatter().then((fn) => setFormatArea(() => fn));
+  }, []);
+
+  useEffect(() => {
+    if (areaPolygon) {
+      renderAnalysisAreaOutline(areaPolygon);
+    } else {
+      clearAnalysisAreaOutline();
+    }
+  }, [areaPolygon]);
+
+  useEffect(() => {
+    if (!areaPolygon) return;
     const shadowResult = getLastShadowResult();
     if (shadowResult) {
       const result = computeShadowPercentageInRegion(
         shadowResult.classifications,
         shadowResult.grid,
-        roiPolygon,
+        areaPolygon,
       );
-      setRoiResult(result);
+      setAreaResult(result);
       setAnalysisTime(
         shadowResult.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       );
       setStatus("");
     }
-  }, [shadowVersion, roiPolygon]);
+  }, [shadowVersion, areaPolygon]);
 
-  const captureROI = async () => {
+  const captureAnalysisArea = async () => {
     setCapturing(true);
     setStatus("");
-    setRoiResult(null);
+    setAreaResult(null);
     try {
       const paths = await Forma.selection.getSelection();
       if (paths.length === 0) {
@@ -75,8 +85,8 @@ export default function ShadowROIAnalysis({
         return;
       }
 
-      setRoiPolygon(polygon);
-      setRoiLabel(`${paths.length} element(s) selected`);
+      setAreaPolygon(polygon);
+      setAreaLabel(`${paths.length} element(s) selected`);
 
       const shadowResult = getLastShadowResult();
       if (shadowResult) {
@@ -85,30 +95,29 @@ export default function ShadowROIAnalysis({
           shadowResult.grid,
           polygon,
         );
-        setRoiResult(result);
+        setAreaResult(result);
       } else {
         setStatus("Run shadow preview to see analysis.");
       }
     } catch (e) {
-      console.error("ROI selection failed:", e);
+      console.error("Analysis area selection failed:", e);
       setStatus("Failed to read selection.");
     } finally {
       setCapturing(false);
     }
   };
 
-  const clearROI = () => {
-    setRoiPolygon(null);
-    setRoiLabel("");
-    setRoiResult(null);
+  const clearAnalysisArea = () => {
+    setAreaPolygon(null);
+    setAreaLabel("");
+    setAreaResult(null);
     setStatus("");
+    clearAnalysisAreaOutline();
   };
 
   return (
     <div style={{ marginTop: "8px" }}>
-      <div class="section-header">Shadow Analysis (ROI)</div>
-
-      {roiPolygon ? (
+      {areaPolygon ? (
         <>
           <div
             style={{
@@ -119,18 +128,18 @@ export default function ShadowROIAnalysis({
             }}
           >
             <span style={{ fontSize: "11px", fontWeight: "bold" }}>
-              ROI: {roiLabel}
+              Analysis Area: {areaLabel}
             </span>
             <weave-button
               variant="flat"
-              onClick={clearROI}
+              onClick={clearAnalysisArea}
               style={{ minWidth: "auto" }}
             >
               Clear
             </weave-button>
             <weave-button
               variant="flat"
-              onClick={captureROI}
+              onClick={captureAnalysisArea}
               disabled={capturing}
               style={{ minWidth: "auto" }}
             >
@@ -138,37 +147,37 @@ export default function ShadowROIAnalysis({
             </weave-button>
           </div>
 
-          {roiResult ? (
+          {areaResult ? (
             <div style={{ fontSize: "10px", color: "#3c3c3c", padding: "4px 0" }}>
               {analysisTime && (
                 <div style={{ fontStyle: "italic", marginBottom: "2px" }}>
                   Analysis at {analysisTime}
                 </div>
               )}
-              <div>ROI area: {formatArea(roiResult.roiArea)}</div>
+              <div>Analysis area: {formatArea(areaResult.analysisArea)}</div>
               <div style={{ fontWeight: "bold" }}>
-                Shadow coverage: {formatArea(roiResult.shadowArea)} (
-                {roiResult.percentage.toFixed(1)}%)
+                Shadow coverage: {formatArea(areaResult.shadowArea)} (
+                {areaResult.percentage.toFixed(1)}%)
               </div>
-              {roiResult.designShadowCells > 0 && (
+              {areaResult.designShadowCells > 0 && (
                 <div>
-                  ↳ Design shadow (net new): {roiResult.designPercentage.toFixed(1)}%
+                  ↳ Design shadow (net new): {areaResult.designPercentage.toFixed(1)}%
                 </div>
               )}
-              {roiResult.contextShadowCells > 0 && (
+              {areaResult.contextShadowCells > 0 && (
                 <div>
-                  ↳ Context shadow: {roiResult.contextPercentage.toFixed(1)}%
+                  ↳ Context shadow: {areaResult.contextPercentage.toFixed(1)}%
                 </div>
               )}
-              {roiResult.plannedShadowCells > 0 && (
+              {areaResult.plannedShadowCells > 0 && (
                 <div>
-                  ↳ Planned shadow: {roiResult.plannedPercentage.toFixed(1)}%
+                  ↳ Planned shadow: {areaResult.plannedPercentage.toFixed(1)}%
                 </div>
               )}
-              {roiResult.totalCells === 0 && (
+              {areaResult.totalCells === 0 && (
                 <div style={{ color: "#b35900" }}>
-                  No grid cells found inside ROI. The selected area may be
-                  outside the analysis bounds.
+                  No grid cells found in the analysis area. The selected area
+                  may be outside the analysis bounds.
                 </div>
               )}
             </div>
@@ -201,7 +210,7 @@ export default function ShadowROIAnalysis({
           </div>
           <weave-button
             variant="outlined"
-            onClick={captureROI}
+            onClick={captureAnalysisArea}
             disabled={capturing}
           >
             {capturing ? "Reading..." : "Set analysis area"}

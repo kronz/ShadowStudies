@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import {
   renderShadowPreview,
   clearShadowPreview,
@@ -6,6 +6,7 @@ import {
   ShadowPreviewResult,
 } from "../lib/shadow-preview";
 import { ShadowColorSettings } from "./ColorControls";
+import { getAreaFormatter } from "../lib/format-utils";
 
 type ShadowPreviewButtonProps = {
   month?: number;
@@ -16,13 +17,6 @@ type ShadowPreviewButtonProps = {
   cellSize?: number;
   onShadowReady?: () => void;
 };
-
-function formatArea(sqMeters: number): string {
-  if (sqMeters >= 10000) {
-    return `${(sqMeters / 10000).toFixed(2)} ha`;
-  }
-  return `${Math.round(sqMeters).toLocaleString()} m²`;
-}
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -42,6 +36,13 @@ export default function ShadowPreviewButton({
   const [active, setActive] = useState(false);
   const [areas, setAreas] = useState<ShadowPreviewResult["areas"] | null>(null);
   const [previewTime, setPreviewTime] = useState<string>("");
+  const [formatArea, setFormatArea] = useState<(sqM: number) => string>(
+    () => (sqM: number) => `${Math.round(sqM).toLocaleString()} m²`,
+  );
+
+  useEffect(() => {
+    getAreaFormatter().then((fn) => setFormatArea(() => fn));
+  }, []);
 
   const hasShadowColors =
     shadowSettings.designShadowEnabled || shadowSettings.contextShadowEnabled;

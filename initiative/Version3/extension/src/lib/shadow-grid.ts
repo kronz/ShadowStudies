@@ -75,10 +75,10 @@ export function computeShadowAreas(
 }
 
 // ────────────────────────────────────────────────────────────
-// ROI (Region of Interest) shadow analysis
+// Analysis Area shadow analysis
 // ────────────────────────────────────────────────────────────
 
-export type ROIResult = {
+export type AnalysisAreaResult = {
   totalCells: number;
   shadowCells: number;
   designShadowCells: number;
@@ -88,7 +88,7 @@ export type ROIResult = {
   designPercentage: number;
   contextPercentage: number;
   plannedPercentage: number;
-  roiArea: number;
+  analysisArea: number;
   shadowArea: number;
 };
 
@@ -121,7 +121,7 @@ export function computeShadowPercentageInRegion(
   classifications: Uint8Array,
   grid: AnalysisGrid,
   polygon: [number, number][],
-): ROIResult {
+): AnalysisAreaResult {
   let totalCells = 0;
   let contextShadowCells = 0;
   let designShadowCells = 0;
@@ -151,7 +151,7 @@ export function computeShadowPercentageInRegion(
     designPercentage: totalCells > 0 ? (designShadowCells / totalCells) * 100 : 0,
     contextPercentage: totalCells > 0 ? (contextShadowCells / totalCells) * 100 : 0,
     plannedPercentage: totalCells > 0 ? (plannedShadowCells / totalCells) * 100 : 0,
-    roiArea: totalCells * cellArea,
+    analysisArea: totalCells * cellArea,
     shadowArea: shadowCells * cellArea,
   };
 }

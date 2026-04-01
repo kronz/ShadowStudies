@@ -35,18 +35,17 @@ describe("pointInPolygon", () => {
 });
 
 describe("computeShadowPercentageInRegion", () => {
-  it("returns ~50% when ROI covers half the shadow", () => {
+  it("returns ~50% when analysis area covers half the shadow", () => {
     const cube = makeCube(0, 0, 10, 10, true);
     const sun = makeSun(45, 0);
     const grid = makeGrid({ minX: -20, minY: -20, maxX: 20, maxY: 20 }, 1);
     const cls = castShadowRays(grid, [cube], sun);
 
-    // ROI covering roughly the east half of the grid
-    const roiPolygon: [number, number][] = [
+    const areaPolygon: [number, number][] = [
       [0, -20], [20, -20], [20, 20], [0, 20],
     ];
 
-    const result = computeShadowPercentageInRegion(cls, grid, roiPolygon);
+    const result = computeShadowPercentageInRegion(cls, grid, areaPolygon);
     expect(result.totalCells).toBeGreaterThan(0);
     expect(result.shadowCells).toBeGreaterThan(0);
 
