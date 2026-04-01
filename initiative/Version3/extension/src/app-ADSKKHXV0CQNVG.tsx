@@ -37,11 +37,12 @@ export default function App() {
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
     contextShadowEnabled: false,
-    contextShadowColor: "#8A7385",
+    contextShadowColor: "#0E0E0E",
     designShadowEnabled: false,
-    designShadowColor: "#383D41",
+    designShadowColor: "#6B2D3C",
     plannedShadowEnabled: false,
-    plannedShadowColor: "#6F536A",
+    plannedShadowColor: "#E898B4",
+    analysisAreaColor: "#CC9D83",
   });
 
   const [buildingColors, setBuildingColors] = useState<Map<string, string>>(new Map());

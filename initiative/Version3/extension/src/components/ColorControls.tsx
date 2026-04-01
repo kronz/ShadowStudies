@@ -43,6 +43,7 @@ export type ShadowColorSettings = {
   designShadowColor: string;
   plannedShadowEnabled: boolean;
   plannedShadowColor: string;
+  analysisAreaColor: string;
 };
 
 type ColorControlsProps = {
@@ -53,18 +54,19 @@ type ColorControlsProps = {
 
 export default function ColorControls({ designPaths: designPathOverrides, onShadowSettingsChange, onBuildingColorsChange }: ColorControlsProps) {
   const [contextBuildingEnabled, setContextBuildingEnabled] = useState(true);
-  const [contextBuildingColor, setContextBuildingColor] = useState("#C6BAA2");
+  const [contextBuildingColor, setContextBuildingColor] = useState("#C0B8AD");
   const [designBuildingEnabled, setDesignBuildingEnabled] = useState(true);
-  const [designBuildingColor, setDesignBuildingColor] = useState("#C8AA92");
+  const [designBuildingColor, setDesignBuildingColor] = useState("#9AAE8C");
   const [terrainEnabled, setTerrainEnabled] = useState(true);
-  const [terrainColor, setTerrainColor] = useState("#BEB0A3");
+  const [terrainColor, setTerrainColor] = useState("#E0BD80");
 
   const [contextShadowEnabled, setContextShadowEnabled] = useState(true);
-  const [contextShadowColor, setContextShadowColor] = useState("#8A7385");
+  const [contextShadowColor, setContextShadowColor] = useState("#0E0E0E");
   const [designShadowEnabled, setDesignShadowEnabled] = useState(true);
-  const [designShadowColor, setDesignShadowColor] = useState("#383D41");
+  const [designShadowColor, setDesignShadowColor] = useState("#6B2D3C");
   const [plannedShadowEnabled, setPlannedShadowEnabled] = useState(true);
-  const [plannedShadowColor, setPlannedShadowColor] = useState("#6F536A");
+  const [plannedShadowColor, setPlannedShadowColor] = useState("#E898B4");
+  const [analysisAreaColor, setAnalysisAreaColor] = useState("#CC9D83");
 
   const [designPaths, setDesignPaths] = useState<string[]>([]);
   const [contextPaths, setContextPaths] = useState<string[]>([]);
@@ -91,8 +93,9 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
       designShadowColor,
       plannedShadowEnabled,
       plannedShadowColor,
+      analysisAreaColor,
     });
-  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor, plannedShadowEnabled, plannedShadowColor]);
+  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor, plannedShadowEnabled, plannedShadowColor, analysisAreaColor]);
 
   useEffect(() => {
     propagateShadowSettings();
@@ -181,6 +184,15 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
         color={plannedShadowColor}
         onToggle={setPlannedShadowEnabled}
         onColor={setPlannedShadowColor}
+      />
+
+      <div class="section-header">Analysis Area</div>
+      <ColorRow
+        label="Area fill:"
+        enabled={true}
+        color={analysisAreaColor}
+        onToggle={() => {}}
+        onColor={setAnalysisAreaColor}
       />
     </>
   );

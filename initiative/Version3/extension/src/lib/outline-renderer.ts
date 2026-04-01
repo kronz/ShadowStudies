@@ -3,107 +3,72 @@ import { Forma } from "forma-embedded-view-sdk/auto";
 type MeshGeometry = { position: Float32Array; color: Uint8Array };
 
 const Z_RENDER_OFFSET = 0.35;
-const DEFAULT_DASH_LENGTH = 2.0;
-const DEFAULT_GAP_LENGTH = 1.5;
-const DEFAULT_LINE_WIDTH = 0.25;
-const OUTLINE_COLOR: [number, number, number, number] = [60, 60, 60, 200];
+const FILL_ALPHA = 120;
 
 let activeOutlineMeshId: string | null = null;
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.substring(0, 2), 16),
+    parseInt(h.substring(2, 4), 16),
+    parseInt(h.substring(4, 6), 16),
+  ];
+}
+
 /**
- * Builds a mesh of thin quad segments along a polygon boundary,
- * with gaps between segments to produce a dashed-line appearance.
- * Each dash is a quad (2 triangles) offset perpendicular to the edge.
+ * Fan-triangulates a polygon from vertex 0 and returns a colored mesh.
+ * Works correctly for convex polygons; adequate for typical building
+ * footprints and parcel boundaries used as analysis areas.
  */
-function buildDashedOutlineMesh(
+function buildFilledPolygonMesh(
   polygon: [number, number][],
-  dashLength = DEFAULT_DASH_LENGTH,
-  gapLength = DEFAULT_GAP_LENGTH,
-  lineWidth = DEFAULT_LINE_WIDTH,
+  colorHex: string,
 ): MeshGeometry {
-  const halfW = lineWidth / 2;
-  const segments: number[][] = [];
-
-  for (let i = 0; i < polygon.length; i++) {
-    const [ax, ay] = polygon[i];
-    const [bx, by] = polygon[(i + 1) % polygon.length];
-
-    const dx = bx - ax;
-    const dy = by - ay;
-    const edgeLen = Math.sqrt(dx * dx + dy * dy);
-    if (edgeLen < 0.01) continue;
-
-    const ux = dx / edgeLen;
-    const uy = dy / edgeLen;
-    const nx = -uy;
-    const ny = ux;
-
-    let walked = 0;
-    let drawing = true;
-
-    while (walked < edgeLen) {
-      const segLen = drawing ? dashLength : gapLength;
-      const end = Math.min(walked + segLen, edgeLen);
-
-      if (drawing) {
-        const sx = ax + ux * walked;
-        const sy = ay + uy * walked;
-        const ex = ax + ux * end;
-        const ey = ay + uy * end;
-
-        segments.push([
-          sx + nx * halfW, sy + ny * halfW,
-          ex + nx * halfW, ey + ny * halfW,
-          ex - nx * halfW, ey - ny * halfW,
-          sx - nx * halfW, sy - ny * halfW,
-        ]);
-      }
-
-      walked = end;
-      drawing = !drawing;
-    }
+  if (polygon.length < 3) {
+    return { position: new Float32Array(0), color: new Uint8Array(0) };
   }
 
-  const vertCount = segments.length * 6;
+  const triCount = polygon.length - 2;
+  const vertCount = triCount * 3;
   const position = new Float32Array(vertCount * 3);
   const color = new Uint8Array(vertCount * 4);
+  const [r, g, b] = hexToRgb(colorHex);
 
   let vi = 0;
-  for (const seg of segments) {
-    const [p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y] = seg;
-    const z = Z_RENDER_OFFSET;
+  for (let i = 1; i < polygon.length - 1; i++) {
+    const [ax, ay] = polygon[0];
+    const [bx, by] = polygon[i];
+    const [cx, cy] = polygon[i + 1];
 
-    position[vi * 3] = p0x; position[vi * 3 + 1] = p0y; position[vi * 3 + 2] = z; vi++;
-    position[vi * 3] = p1x; position[vi * 3 + 1] = p1y; position[vi * 3 + 2] = z; vi++;
-    position[vi * 3] = p2x; position[vi * 3 + 1] = p2y; position[vi * 3 + 2] = z; vi++;
-
-    position[vi * 3] = p0x; position[vi * 3 + 1] = p0y; position[vi * 3 + 2] = z; vi++;
-    position[vi * 3] = p2x; position[vi * 3 + 1] = p2y; position[vi * 3 + 2] = z; vi++;
-    position[vi * 3] = p3x; position[vi * 3 + 1] = p3y; position[vi * 3 + 2] = z; vi++;
+    position[vi * 3] = ax; position[vi * 3 + 1] = ay; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
+    position[vi * 3] = bx; position[vi * 3 + 1] = by; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
+    position[vi * 3] = cx; position[vi * 3 + 1] = cy; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
   }
 
   for (let i = 0; i < vertCount; i++) {
-    color[i * 4] = OUTLINE_COLOR[0];
-    color[i * 4 + 1] = OUTLINE_COLOR[1];
-    color[i * 4 + 2] = OUTLINE_COLOR[2];
-    color[i * 4 + 3] = OUTLINE_COLOR[3];
+    color[i * 4] = r;
+    color[i * 4 + 1] = g;
+    color[i * 4 + 2] = b;
+    color[i * 4 + 3] = FILL_ALPHA;
   }
 
   return { position, color };
 }
 
 /**
- * Renders a dashed outline around the given polygon in the Forma 3D scene.
- * Removes any previously rendered outline first.
+ * Renders a semi-transparent colored fill over the given polygon in
+ * the Forma 3D scene. Removes any previously rendered fill first.
  */
 export async function renderAnalysisAreaOutline(
   polygon: [number, number][],
+  colorHex = "#CC9D83",
 ): Promise<void> {
   await clearAnalysisAreaOutline();
 
   if (polygon.length < 3) return;
 
-  const mesh = buildDashedOutlineMesh(polygon);
+  const mesh = buildFilledPolygonMesh(polygon, colorHex);
   if (mesh.position.length === 0) return;
 
   const { id } = await Forma.render.addMesh({ geometryData: mesh });
@@ -111,7 +76,7 @@ export async function renderAnalysisAreaOutline(
 }
 
 /**
- * Removes the dashed outline mesh from the scene.
+ * Removes the analysis area fill mesh from the scene.
  */
 export async function clearAnalysisAreaOutline(): Promise<void> {
   if (activeOutlineMeshId) {

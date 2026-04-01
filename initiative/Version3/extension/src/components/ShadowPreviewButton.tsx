@@ -6,7 +6,7 @@ import {
   ShadowPreviewResult,
 } from "../lib/shadow-preview";
 import { ShadowColorSettings } from "./ColorControls";
-import { getAreaFormatter } from "../lib/format-utils";
+import { getAreaFormatter, formatTimeInProjectTz } from "../lib/format-utils";
 
 type ShadowPreviewButtonProps = {
   month?: number;
@@ -17,10 +17,6 @@ type ShadowPreviewButtonProps = {
   cellSize?: number;
   onShadowReady?: () => void;
 };
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 export default function ShadowPreviewButton({
   month,
@@ -76,7 +72,7 @@ export default function ShadowPreviewButton({
       };
       const result = await renderShadowPreview(options);
       setAreas(result.areas);
-      setPreviewTime(formatTime(result.dateUsed));
+      setPreviewTime(await formatTimeInProjectTz(result.dateUsed));
       setActive(true);
       onShadowReady?.();
     } catch (e) {

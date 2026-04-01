@@ -40,11 +40,12 @@ export default function App() {
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
     contextShadowEnabled: true,
-    contextShadowColor: "#8A7385",
+    contextShadowColor: "#0E0E0E",
     designShadowEnabled: true,
-    designShadowColor: "#383D41",
+    designShadowColor: "#6B2D3C",
     plannedShadowEnabled: true,
-    plannedShadowColor: "#6F536A",
+    plannedShadowColor: "#E898B4",
+    analysisAreaColor: "#CC9D83",
   });
 
   const [buildingColors, setBuildingColors] = useState<Map<string, string>>(new Map());
@@ -73,6 +74,7 @@ export default function App() {
       <weave-accordion label="Analysis Area" expanded>
         <ShadowROIAnalysis
           shadowVersion={shadowVersion}
+          analysisAreaColor={shadowSettings.analysisAreaColor}
         />
       </weave-accordion>
 

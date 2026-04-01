@@ -5,15 +5,17 @@ import {
   computeShadowPercentageInRegion,
   type AnalysisAreaResult,
 } from "../lib/shadow-grid";
-import { getAreaFormatter } from "../lib/format-utils";
+import { getAreaFormatter, formatTimeInProjectTz } from "../lib/format-utils";
 import { renderAnalysisAreaOutline, clearAnalysisAreaOutline } from "../lib/outline-renderer";
 
 type ShadowROIAnalysisProps = {
   shadowVersion: number;
+  analysisAreaColor?: string;
 };
 
 export default function ShadowROIAnalysis({
   shadowVersion,
+  analysisAreaColor = "#CC9D83",
 }: ShadowROIAnalysisProps) {
   const [areaPolygon, setAreaPolygon] = useState<[number, number][] | null>(null);
   const [areaLabel, setAreaLabel] = useState("");
@@ -31,11 +33,11 @@ export default function ShadowROIAnalysis({
 
   useEffect(() => {
     if (areaPolygon) {
-      renderAnalysisAreaOutline(areaPolygon);
+      renderAnalysisAreaOutline(areaPolygon, analysisAreaColor);
     } else {
       clearAnalysisAreaOutline();
     }
-  }, [areaPolygon]);
+  }, [areaPolygon, analysisAreaColor]);
 
   useEffect(() => {
     if (!areaPolygon) return;
@@ -47,9 +49,7 @@ export default function ShadowROIAnalysis({
         areaPolygon,
       );
       setAreaResult(result);
-      setAnalysisTime(
-        shadowResult.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      );
+      formatTimeInProjectTz(shadowResult.date).then(setAnalysisTime);
       setStatus("");
     }
   }, [shadowVersion, areaPolygon]);
@@ -157,21 +157,21 @@ export default function ShadowROIAnalysis({
               <div>Analysis area: {formatArea(areaResult.analysisArea)}</div>
               <div style={{ fontWeight: "bold" }}>
                 Shadow coverage: {formatArea(areaResult.shadowArea)} (
-                {areaResult.percentage.toFixed(1)}%)
+                {Math.round(areaResult.percentage)}%)
               </div>
               {areaResult.designShadowCells > 0 && (
                 <div>
-                  ↳ Design shadow (net new): {areaResult.designPercentage.toFixed(1)}%
+                  ↳ Design shadow (net new): {Math.round(areaResult.designPercentage)}%
                 </div>
               )}
               {areaResult.contextShadowCells > 0 && (
                 <div>
-                  ↳ Context shadow: {areaResult.contextPercentage.toFixed(1)}%
+                  ↳ Context shadow: {Math.round(areaResult.contextPercentage)}%
                 </div>
               )}
               {areaResult.plannedShadowCells > 0 && (
                 <div>
-                  ↳ Planned shadow: {areaResult.plannedPercentage.toFixed(1)}%
+                  ↳ Planned shadow: {Math.round(areaResult.plannedPercentage)}%
                 </div>
               )}
               {areaResult.totalCells === 0 && (
