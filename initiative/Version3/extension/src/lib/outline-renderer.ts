@@ -2,7 +2,7 @@ import { Forma } from "forma-embedded-view-sdk/auto";
 
 type MeshGeometry = { position: Float32Array; color: Uint8Array };
 
-const Z_RENDER_OFFSET = 0.35;
+const Z_RENDER_OFFSET = 0.05;
 const FILL_ALPHA = 120;
 
 let activeOutlineMeshId: string | null = null;
