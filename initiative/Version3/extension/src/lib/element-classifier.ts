@@ -38,34 +38,23 @@ async function getElementTree(): Promise<{
 }
 
 /**
- * Determines whether an element is a "design" building (has floors).
- *
- * Checks three signals:
- * 1. graphBuilding / grossFloorAreaPolygons — native Forma buildings
- * 2. semanticMesh — buildings with tagged geometry parts (walls, floors)
- * 3. spacemakerObjectStorageReferences in properties — imported (Revit/AXM)
- *    or 3D Sketch buildings whose floor data lives in external blobs
+ * Checks whether an element itself has design-level representations:
+ * graphBuilding, grossFloorAreaPolygons, or semanticMesh.
+ * These are typically found on floor-level children, not the building parent.
  */
-function isDesignBuilding(element: FormaElement): boolean {
+function hasDesignRepresentations(element: FormaElement): boolean {
   const reps = element.representations;
-  if (reps?.graphBuilding || reps?.grossFloorAreaPolygons || reps?.semanticMesh) {
-    return true;
-  }
-
-  const props = element.properties;
-  if (props?.spacemakerObjectStorageReferences) {
-    return true;
-  }
-
-  return false;
+  if (!reps) return false;
+  return !!(reps.graphBuilding || reps.grossFloorAreaPolygons || reps.semanticMesh);
 }
 
 /**
  * Auto-classifies elements into design and context.
  *
- * Design = native floors (graphBuilding/grossFloorAreaPolygons),
- *          semantic mesh, or imported AXM models.
- * Context = everything else.
+ * In Forma's element tree, design representations (graphBuilding, etc.)
+ * live on floor-level children, not the building element itself.
+ * So we first identify which elements have design reps, then propagate
+ * that status up to their parent building-category elements.
  */
 export async function classifyElements(): Promise<{
   designPaths: string[];
@@ -73,46 +62,43 @@ export async function classifyElements(): Promise<{
 }> {
   const { entries } = await getElementTree();
 
+  // Pass 1: find all paths with design-level representations
+  const leafDesignPaths: string[] = [];
+  for (const { path, element } of entries) {
+    if (hasDesignRepresentations(element)) {
+      leafDesignPaths.push(path);
+    }
+  }
+
+  // Pass 2: for building-category elements, check if any descendant is design.
+  // A building is "design" if any of its children/descendants have design reps.
   const designPaths: string[] = [];
   const contextPaths: string[] = [];
 
-  const categorySet = new Set<string>();
-
   for (const { path, element } of entries) {
     const cat = element.properties?.category;
-    if (cat) categorySet.add(cat);
+    const selfDesign = hasDesignRepresentations(element);
+    const parentOfDesign =
+      cat === "building" &&
+      leafDesignPaths.some((dp) => dp.startsWith(path + "/"));
 
-    const design = isDesignBuilding(element);
-
-    const repKeys = element.representations
-      ? Object.keys(element.representations).filter(
-          (k) => (element.representations as Record<string, unknown>)[k],
-        )
-      : [];
-
-    if (design || cat === "building") {
-      const propKeys = element.properties
-        ? Object.keys(element.properties)
-        : [];
-      console.log(
-        `[classifier] ${path} → ${design ? "DESIGN" : "CONTEXT"} cat=${cat ?? "none"}`,
-        { repKeys, propKeys, props: element.properties },
-      );
-    }
-
-    if (design) {
+    if (selfDesign || parentOfDesign) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);
     }
   }
 
+  const dBuildings = designPaths.filter((p) =>
+    entries.find((e) => e.path === p)?.element.properties?.category === "building",
+  ).length;
+  const cBuildings = entries.filter(
+    (e) =>
+      e.element.properties?.category === "building" &&
+      !designPaths.includes(e.path),
+  ).length;
   console.log(
-    `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context`,
-  );
-  console.log(
-    `[element-classifier] categories found:`,
-    [...categorySet],
+    `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context (buildings: ${dBuildings} design, ${cBuildings} context)`,
   );
 
   return { designPaths, contextPaths };
