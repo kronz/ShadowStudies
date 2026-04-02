@@ -154,9 +154,9 @@ function classifyPoint(
     }
   }
 
+  if (hitContext) return ShadowClass.ContextShadow;
   if (hitDesign) return ShadowClass.DesignShadow;
   if (hitPlanned) return ShadowClass.PlannedShadow;
-  if (hitContext) return ShadowClass.ContextShadow;
   return ShadowClass.Sunlit;
 }
 
@@ -249,12 +249,12 @@ export function castMultiSampleRays(
     const totalHits = designHits + plannedHits + contextHits;
     coverage[i] = totalHits / 4;
 
-    if (designHits > 0) {
+    if (contextHits > 0) {
+      classifications[i] = ShadowClass.ContextShadow;
+    } else if (designHits > 0) {
       classifications[i] = ShadowClass.DesignShadow;
     } else if (plannedHits > 0) {
       classifications[i] = ShadowClass.PlannedShadow;
-    } else if (contextHits > 0) {
-      classifications[i] = ShadowClass.ContextShadow;
     }
   }
 
