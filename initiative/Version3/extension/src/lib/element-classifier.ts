@@ -38,22 +38,34 @@ async function getElementTree(): Promise<{
 }
 
 /**
- * Determines whether an element is a "design" building (has floors)
- * by checking for graphBuilding or grossFloorAreaPolygons representations.
+ * Determines whether an element is a "design" building (has floors).
  *
- * Elements with floors → Design building
- * Elements without floors → Context building
+ * Checks three signals:
+ * 1. graphBuilding / grossFloorAreaPolygons — native Forma buildings
+ * 2. semanticMesh — buildings with tagged geometry parts (walls, floors)
+ * 3. spacemakerObjectStorageReferences in properties — imported (Revit/AXM)
+ *    or 3D Sketch buildings whose floor data lives in external blobs
  */
-function hasFloorRepresentations(element: FormaElement): boolean {
+function isDesignBuilding(element: FormaElement): boolean {
   const reps = element.representations;
-  if (!reps) return false;
-  return !!(reps.graphBuilding || reps.grossFloorAreaPolygons);
+  if (reps?.graphBuilding || reps?.grossFloorAreaPolygons || reps?.semanticMesh) {
+    return true;
+  }
+
+  const props = element.properties;
+  if (props?.spacemakerObjectStorageReferences) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
- * Auto-classifies elements into design and context based on
- * floor representations. Buildings with graphBuilding or
- * grossFloorAreaPolygons are "design"; all others are "context".
+ * Auto-classifies elements into design and context.
+ *
+ * Design = native floors (graphBuilding/grossFloorAreaPolygons),
+ *          semantic mesh, or imported AXM models.
+ * Context = everything else.
  */
 export async function classifyElements(): Promise<{
   designPaths: string[];
@@ -65,12 +77,16 @@ export async function classifyElements(): Promise<{
   const contextPaths: string[] = [];
 
   for (const { path, element } of entries) {
-    if (hasFloorRepresentations(element)) {
+    if (isDesignBuilding(element)) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);
     }
   }
+
+  console.log(
+    `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context`,
+  );
 
   return { designPaths, contextPaths };
 }
