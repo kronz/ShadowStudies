@@ -3,38 +3,23 @@ import {
   renderShadowPreview,
   clearShadowPreview,
   ShadowPreviewOptions,
-  ShadowPreviewResult,
 } from "../lib/shadow-preview";
 import { ShadowColorSettings } from "./ColorControls";
 
 type ShadowPreviewButtonProps = {
-  month: number;
-  day: number;
   shadowSettings: ShadowColorSettings;
-  designPaths?: string[];
   cellSize?: number;
   onShadowReady?: () => void;
 };
 
-function formatArea(sqMeters: number): string {
-  if (sqMeters >= 10000) {
-    return `${(sqMeters / 10000).toFixed(2)} ha`;
-  }
-  return `${Math.round(sqMeters).toLocaleString()} m²`;
-}
-
 export default function ShadowPreviewButton({
-  month,
-  day,
   shadowSettings,
-  designPaths,
   cellSize,
   onShadowReady,
 }: ShadowPreviewButtonProps) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [active, setActive] = useState(false);
-  const [areas, setAreas] = useState<ShadowPreviewResult["areas"] | null>(null);
 
   const hasShadowColors =
     shadowSettings.designShadowEnabled || shadowSettings.contextShadowEnabled;
@@ -44,26 +29,20 @@ export default function ShadowPreviewButton({
       await clearShadowPreview();
       setActive(false);
       setStatus("");
-      setAreas(null);
       return;
     }
 
     setLoading(true);
-    setAreas(null);
     try {
       const options: ShadowPreviewOptions = {
-        month,
-        day,
         designShadowEnabled: shadowSettings.designShadowEnabled,
         designShadowColor: shadowSettings.designShadowColor,
         contextShadowEnabled: shadowSettings.contextShadowEnabled,
         contextShadowColor: shadowSettings.contextShadowColor,
-        designPaths,
         cellSize,
         onProgress: setStatus,
       };
-      const result = await renderShadowPreview(options);
-      setAreas(result.areas);
+      await renderShadowPreview(options);
       setActive(true);
       onShadowReady?.();
     } catch (e) {
@@ -94,21 +73,7 @@ export default function ShadowPreviewButton({
           {status}
         </div>
       )}
-      {areas && active && (
-        <div style={{ fontSize: "10px", color: "#3c3c3c", padding: "4px 0" }}>
-          {shadowSettings.contextShadowEnabled && areas.contextShadowArea > 0 && (
-            <div>Context shadow: {formatArea(areas.contextShadowArea)}</div>
-          )}
-          {shadowSettings.designShadowEnabled && areas.designOnlyShadowArea > 0 && (
-            <div>Design shadow (net new): {formatArea(areas.designOnlyShadowArea)}</div>
-          )}
-          {areas.totalShadowArea > 0 && (
-            <div style={{ fontWeight: "bold" }}>
-              Total shadow: {formatArea(areas.totalShadowArea)}
-            </div>
-          )}
-        </div>
-      )}
+    
     </div>
   );
 }

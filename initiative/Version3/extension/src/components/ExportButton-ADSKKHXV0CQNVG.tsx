@@ -21,7 +21,6 @@ type ExportButtonProps = {
   matrixConfig: MatrixConfig;
   shadowSettings: ShadowColorSettings;
   buildingColors: Map<string, string>;
-  designPaths?: string[];
   cellSize?: number;
 };
 
@@ -48,7 +47,6 @@ export default function ExportButton(props: ExportButtonProps) {
     designShadowColor: shadowSettings.designShadowColor,
     contextShadowEnabled: shadowSettings.contextShadowEnabled,
     contextShadowColor: shadowSettings.contextShadowColor,
-    designPaths: props.designPaths,
     cellSize: props.cellSize,
   };
 
@@ -66,7 +64,7 @@ export default function ExportButton(props: ExportButtonProps) {
       const year = currentDate.getFullYear();
 
       setProgress("Preparing scene geometry...");
-      const cache = await prepareScene(setProgress, props.cellSize, props.designPaths);
+      const cache = await prepareScene(setProgress, props.cellSize);
 
       const zip = new JSZip();
       const zipFolder = zip.folder("shadow-study") as JSZip;

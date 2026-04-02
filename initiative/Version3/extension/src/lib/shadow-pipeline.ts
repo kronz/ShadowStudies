@@ -24,15 +24,14 @@ export type SceneCache = {
  * This is the expensive async step — only needs to happen once per
  * editing session (or when the proposal changes).
  *
- * designPaths: user-selected element paths to treat as "design" buildings.
+ * Buildings are auto-classified as design vs context based on floor
+ * representations (graphBuilding / grossFloorAreaPolygons).
  */
 export async function prepareScene(
   onProgress?: (msg: string) => void,
   cellSize = DEFAULT_CELL_SIZE,
-  designPaths?: string[],
-  plannedPaths?: string[],
 ): Promise<SceneCache> {
-  const scene = await extractSceneGeometry(onProgress, designPaths, plannedPaths);
+  const scene = await extractSceneGeometry(onProgress);
 
   onProgress?.("Sampling terrain elevation...");
   const terrain = await TerrainSampler.fromElevationAPI(scene.bounds, 5);
@@ -208,7 +207,7 @@ export async function computeShadowScene(
       classifications: new Uint8Array(cache.grid.cells.length),
       sun,
       date,
-      areas: { contextShadowArea: 0, designOnlyShadowArea: 0, plannedShadowArea: 0, totalShadowArea: 0 },
+      areas: { contextShadowArea: 0, designOnlyShadowArea: 0, totalShadowArea: 0 },
       buildings: cache.scene.buildings,
     };
   }

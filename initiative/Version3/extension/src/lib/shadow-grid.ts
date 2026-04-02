@@ -6,7 +6,6 @@ import { ShadowClass } from "./ray-caster";
 export type ShadowAreas = {
   contextShadowArea: number;
   designOnlyShadowArea: number;
-  plannedShadowArea: number;
   totalShadowArea: number;
 };
 
@@ -44,7 +43,6 @@ export function computeShadowAreas(
   const refinedParents = new Set<number>();
   let contextArea = 0;
   let designArea = 0;
-  let plannedArea = 0;
 
   if (refinement) {
     for (let i = 0; i < refinement.refinedParentMap.length; i++) {
@@ -54,7 +52,6 @@ export function computeShadowAreas(
       const cls = refinement.refinedClassifications[i];
       if (cls === ShadowClass.ContextShadow) contextArea += refinement.refinedCellArea;
       else if (cls === ShadowClass.DesignShadow) designArea += refinement.refinedCellArea;
-      else if (cls === ShadowClass.PlannedShadow) plannedArea += refinement.refinedCellArea;
     }
   }
 
@@ -63,14 +60,12 @@ export function computeShadowAreas(
     const cls = classifications[i];
     if (cls === ShadowClass.ContextShadow) contextArea += cellArea;
     else if (cls === ShadowClass.DesignShadow) designArea += cellArea;
-    else if (cls === ShadowClass.PlannedShadow) plannedArea += cellArea;
   }
 
   return {
     contextShadowArea: contextArea,
     designOnlyShadowArea: designArea,
-    plannedShadowArea: plannedArea,
-    totalShadowArea: contextArea + designArea + plannedArea,
+    totalShadowArea: contextArea + designArea,
   };
 }
 
@@ -83,11 +78,9 @@ export type AnalysisAreaResult = {
   shadowCells: number;
   designShadowCells: number;
   contextShadowCells: number;
-  plannedShadowCells: number;
   percentage: number;
   designPercentage: number;
   contextPercentage: number;
-  plannedPercentage: number;
   analysisArea: number;
   shadowArea: number;
 };
@@ -125,7 +118,6 @@ export function computeShadowPercentageInRegion(
   let totalCells = 0;
   let contextShadowCells = 0;
   let designShadowCells = 0;
-  let plannedShadowCells = 0;
 
   for (let i = 0; i < grid.cells.length; i++) {
     const cell = grid.cells[i];
@@ -135,10 +127,9 @@ export function computeShadowPercentageInRegion(
     const cls = classifications[i];
     if (cls === ShadowClass.ContextShadow) contextShadowCells++;
     else if (cls === ShadowClass.DesignShadow) designShadowCells++;
-    else if (cls === ShadowClass.PlannedShadow) plannedShadowCells++;
   }
 
-  const shadowCells = contextShadowCells + designShadowCells + plannedShadowCells;
+  const shadowCells = contextShadowCells + designShadowCells;
   const cellArea = grid.cellSize * grid.cellSize;
 
   return {
@@ -146,11 +137,9 @@ export function computeShadowPercentageInRegion(
     shadowCells,
     designShadowCells,
     contextShadowCells,
-    plannedShadowCells,
     percentage: totalCells > 0 ? (shadowCells / totalCells) * 100 : 0,
     designPercentage: totalCells > 0 ? (designShadowCells / totalCells) * 100 : 0,
     contextPercentage: totalCells > 0 ? (contextShadowCells / totalCells) * 100 : 0,
-    plannedPercentage: totalCells > 0 ? (plannedShadowCells / totalCells) * 100 : 0,
     analysisArea: totalCells * cellArea,
     shadowArea: shadowCells * cellArea,
   };

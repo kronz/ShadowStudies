@@ -10,7 +10,6 @@ export const enum ShadowClass {
   Sunlit = 0,
   ContextShadow = 1,
   DesignShadow = 2,
-  PlannedShadow = 3,
 }
 
 /**
@@ -129,13 +128,11 @@ function classifyPoint(
   bvh?: FlatBVH,
 ): ShadowClass {
   let hitDesign = false;
-  let hitPlanned = false;
   let hitContext = false;
 
   const checkBuilding = (building: BuildingMesh) => {
     if (testBuildingHit(building, origin, dir)) {
       if (building.isDesign) hitDesign = true;
-      else if (building.isPlanned) hitPlanned = true;
       else hitContext = true;
     }
   };
@@ -156,7 +153,6 @@ function classifyPoint(
 
   if (hitContext) return ShadowClass.ContextShadow;
   if (hitDesign) return ShadowClass.DesignShadow;
-  if (hitPlanned) return ShadowClass.PlannedShadow;
   return ShadowClass.Sunlit;
 }
 
@@ -235,26 +231,22 @@ export function castMultiSampleRays(
   for (let i = 0; i < count; i++) {
     const cell = cells[i];
     let designHits = 0;
-    let plannedHits = 0;
     let contextHits = 0;
 
     for (const [dx, dy] of offsets) {
       const origin: Vec3 = [cell.x + dx, cell.y + dy, cell.z + Z_OFFSET];
       const cls = classifyPoint(origin, dir, invDir, buildings, bvh);
       if (cls === ShadowClass.DesignShadow) designHits++;
-      else if (cls === ShadowClass.PlannedShadow) plannedHits++;
       else if (cls === ShadowClass.ContextShadow) contextHits++;
     }
 
-    const totalHits = designHits + plannedHits + contextHits;
+    const totalHits = designHits + contextHits;
     coverage[i] = totalHits / 4;
 
     if (contextHits > 0) {
       classifications[i] = ShadowClass.ContextShadow;
     } else if (designHits > 0) {
       classifications[i] = ShadowClass.DesignShadow;
-    } else if (plannedHits > 0) {
-      classifications[i] = ShadowClass.PlannedShadow;
     }
   }
 

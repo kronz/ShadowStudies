@@ -9,21 +9,17 @@ type ElementEntry = {
 function collectEntries(
   urn: Urn,
   elements: Record<Urn, FormaElement>,
-  predicate: (element: FormaElement) => boolean,
   path: string = "root",
 ): ElementEntry[] {
   const element = elements[urn];
   if (!element) return [];
 
-  const entries: ElementEntry[] = [];
-  if (predicate(element)) {
-    entries.push({ path, element });
-  }
+  const entries: ElementEntry[] = [{ path, element }];
 
   if (element.children) {
     for (const child of element.children) {
       entries.push(
-        ...collectEntries(child.urn, elements, predicate, `${path}/${child.key}`),
+        ...collectEntries(child.urn, elements, `${path}/${child.key}`),
       );
     }
   }
@@ -37,53 +33,39 @@ async function getElementTree(): Promise<{
 }> {
   const rootUrn = (await Forma.proposal.getRootUrn()) as Urn;
   const { elements } = await Forma.elements.get({ urn: rootUrn, recursive: true });
-  const entries = collectEntries(rootUrn, elements, () => true);
+  const entries = collectEntries(rootUrn, elements);
   return { entries, elements, rootUrn };
 }
 
 /**
- * Checks if a tree path belongs to a user-tagged design path.
- * Matches:
- *  - Exact path match (user selected this element)
- *  - Descendant match (tree path is a child of a selected element)
+ * Determines whether an element is a "design" building (has floors)
+ * by checking for graphBuilding or grossFloorAreaPolygons representations.
  *
- * Does NOT match ancestor paths — a parent group containing both
- * design and context children must stay context so its combined
- * getTriangles() mesh doesn't get tagged as design.
+ * Elements with floors → Design building
+ * Elements without floors → Context building
  */
-function isDesignBySelection(path: string, designSet: Set<string>): boolean {
-  if (designSet.has(path)) return true;
-  for (const dp of designSet) {
-    if (path.startsWith(dp + "/")) return true;
-  }
-  return false;
+function hasFloorRepresentations(element: FormaElement): boolean {
+  const reps = element.representations;
+  if (!reps) return false;
+  return !!(reps.graphBuilding || reps.grossFloorAreaPolygons);
 }
 
 /**
- * Classifies elements into design and context.
- *
- * When `designPathOverrides` is provided (user-selected paths from
- * Forma.selection), classification is based on path matching — any
- * element whose path matches or is a descendant of a selected path
- * is tagged as design. Everything else is context.
- *
- * When no overrides are provided, ALL elements are classified as
- * context (no auto-detection).
+ * Auto-classifies elements into design and context based on
+ * floor representations. Buildings with graphBuilding or
+ * grossFloorAreaPolygons are "design"; all others are "context".
  */
-export async function classifyElements(
-  designPathOverrides?: string[],
-): Promise<{
+export async function classifyElements(): Promise<{
   designPaths: string[];
   contextPaths: string[];
 }> {
   const { entries } = await getElementTree();
 
-  const designSet = new Set(designPathOverrides ?? []);
   const designPaths: string[] = [];
   const contextPaths: string[] = [];
 
-  for (const { path } of entries) {
-    if (designSet.size > 0 && isDesignBySelection(path, designSet)) {
+  for (const { path, element } of entries) {
+    if (hasFloorRepresentations(element)) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);
@@ -99,23 +81,6 @@ export async function classifyElements(
 export async function getAllElementPaths(): Promise<string[]> {
   const { entries } = await getElementTree();
   return entries.map((e) => e.path);
-}
-
-/**
- * Returns design/context paths using the given overrides.
- */
-export async function getDesignElementPaths(
-  designPathOverrides?: string[],
-): Promise<string[]> {
-  const { designPaths } = await classifyElements(designPathOverrides);
-  return designPaths;
-}
-
-export async function getContextElementPaths(
-  designPathOverrides?: string[],
-): Promise<string[]> {
-  const { contextPaths } = await classifyElements(designPathOverrides);
-  return contextPaths;
 }
 
 export function subscribeToProposalChanges(callback: () => void): () => void {

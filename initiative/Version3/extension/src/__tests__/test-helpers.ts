@@ -13,7 +13,6 @@ export function makeCube(
   size: number,
   height: number,
   isDesign: boolean,
-  isPlanned = false,
 ): BuildingMesh {
   const hs = size / 2;
   const x0 = cx - hs, x1 = cx + hs;
@@ -50,7 +49,7 @@ export function makeCube(
     [x0, y0], [x1, y0], [x1, y1], [x0, y1],
   ];
 
-  return { path: `cube_${cx}_${cy}`, triangles, aabb, isDesign, isPlanned, footprint };
+  return { path: `cube_${cx}_${cy}`, triangles, aabb, isDesign, footprint };
 }
 
 /**

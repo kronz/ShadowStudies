@@ -169,11 +169,6 @@ export default function ShadowROIAnalysis({
                   ↳ Context shadow: {Math.round(areaResult.contextPercentage)}%
                 </div>
               )}
-              {areaResult.plannedShadowCells > 0 && (
-                <div>
-                  ↳ Planned shadow: {Math.round(areaResult.plannedPercentage)}%
-                </div>
-              )}
               {areaResult.totalCells === 0 && (
                 <div style={{ color: "#b35900" }}>
                   No grid cells found in the analysis area. The selected area

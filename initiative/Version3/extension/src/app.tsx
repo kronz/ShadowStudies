@@ -10,7 +10,6 @@ import ColorControls, { ShadowColorSettings } from "./components/ColorControls";
 import MatrixSelector, { MatrixConfig } from "./components/MatrixSelector";
 import ShadowPreviewButton from "./components/ShadowPreviewButton";
 import ButterflyExportButton from "./components/ButterflyExportButton";
-import DesignBuildingSelector from "./components/DesignBuildingSelector";
 import ShadowROIAnalysis from "./components/ShadowROIAnalysis";
 
 type ExportMode = "matrix" | "custom";
@@ -35,16 +34,11 @@ export default function App() {
     eveningHour: 15,
   });
 
-  const [designPaths, setDesignPaths] = useState<string[]>([]);
-  const [plannedPaths, setPlannedPaths] = useState<string[]>([]);
-
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
     contextShadowEnabled: true,
     contextShadowColor: "#0E0E0E",
     designShadowEnabled: true,
     designShadowColor: "#6B2D3C",
-    plannedShadowEnabled: true,
-    plannedShadowColor: "#E898B4",
     analysisAreaColor: "#CC9D83",
   });
 
@@ -60,16 +54,7 @@ export default function App() {
 
   return (
     <>
-      <h1>Shadow study v3.011</h1>
-
-      <weave-accordion label="Design Buildings" expanded>
-        <DesignBuildingSelector
-          designPaths={designPaths}
-          onDesignPathsChange={setDesignPaths}
-          plannedPaths={plannedPaths}
-          onPlannedPathsChange={setPlannedPaths}
-        />
-      </weave-accordion>
+      <h1>Shadow study v3.012</h1>
 
       <weave-accordion label="Analysis Area" expanded>
         <ShadowROIAnalysis
@@ -119,7 +104,6 @@ export default function App() {
 
       <weave-accordion label="Analysis Colors">
         <ColorControls
-          designPaths={designPaths}
           onShadowSettingsChange={handleShadowSettingsChange}
           onBuildingColorsChange={handleBuildingColorsChange}
         />
@@ -140,8 +124,6 @@ export default function App() {
 
         <ShadowPreviewButton
           shadowSettings={shadowSettings}
-          designPaths={designPaths}
-          plannedPaths={plannedPaths}
           cellSize={cellSize}
           onShadowReady={() => setShadowVersion((v) => v + 1)}
         />
@@ -159,8 +141,6 @@ export default function App() {
           matrixConfig={matrixConfig}
           shadowSettings={shadowSettings}
           buildingColors={buildingColors}
-          designPaths={designPaths}
-          plannedPaths={plannedPaths}
           cellSize={cellSize}
         />
 
@@ -169,8 +149,6 @@ export default function App() {
           day={exportMode === "matrix" ? 21 : day}
           resolution={resolution}
           shadowSettings={shadowSettings}
-          designPaths={designPaths}
-          plannedPaths={plannedPaths}
           cellSize={cellSize}
         />
       </weave-accordion>

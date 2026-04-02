@@ -149,8 +149,6 @@ export function buildShadowMeshes(
     contextShadowColor: string;
     designShadowEnabled: boolean;
     designShadowColor: string;
-    plannedShadowEnabled?: boolean;
-    plannedShadowColor?: string;
   },
   result?: ShadowGridResult,
 ): { geometryData: MeshGeometry; label: string }[] {
@@ -197,9 +195,6 @@ export function buildShadowMeshes(
   }
   if (options.designShadowEnabled) {
     buildForClass(ShadowClass.DesignShadow, options.designShadowColor, 0.65, "design-shadow");
-  }
-  if (options.plannedShadowEnabled && options.plannedShadowColor) {
-    buildForClass(ShadowClass.PlannedShadow, options.plannedShadowColor, 0.6, "planned-shadow");
   }
 
   return meshes;

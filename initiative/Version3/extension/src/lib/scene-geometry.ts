@@ -1,4 +1,5 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
+import { classifyElements } from "./element-classifier";
 
 export type Vec3 = [number, number, number];
 export type Triangle3D = [Vec3, Vec3, Vec3];
@@ -13,7 +14,6 @@ export type BuildingMesh = {
   triangles: Triangle3D[];
   aabb: AABB;
   isDesign: boolean;
-  isPlanned: boolean;
   footprint: [number, number][];
 };
 
@@ -126,85 +126,31 @@ async function processElement(
 
   return {
     type: "building",
-    building: { path, triangles, aabb, isDesign, isPlanned: false, footprint },
+    building: { path, triangles, aabb, isDesign, footprint },
   };
-}
-
-/**
- * Extracts design buildings directly from user-selected paths by calling
- * getTriangles() on each selection path. Forma's selection API and
- * element tree use different path spaces — selection paths don't appear
- * in the tree walk — so we must fetch geometry for them separately.
- *
- * Returns only buildings (skips elements below MIN_BUILDING_HEIGHT).
- * No footprint filter applied since these are explicitly user-selected.
- */
-async function extractDesignBuildings(
-  designPaths: string[],
-  onProgress?: (msg: string) => void,
-): Promise<BuildingMesh[]> {
-  const buildings: BuildingMesh[] = [];
-
-  for (let i = 0; i < designPaths.length; i++) {
-    const path = designPaths[i];
-    onProgress?.(`Fetching design building ${i + 1}/${designPaths.length}...`);
-
-    const data = await getTrianglesForPath(path);
-    if (!data) {
-      console.log(`[shadow] Design path ${path}: no triangles`);
-      continue;
-    }
-
-    const triangles = parseTriangles(data);
-    if (triangles.length === 0) continue;
-
-    const aabb = computeAABB(triangles);
-    const height = aabb.max[2] - aabb.min[2];
-    if (height < MIN_BUILDING_HEIGHT) {
-      console.log(`[shadow] Design path ${path}: too short (${height.toFixed(1)}m)`);
-      continue;
-    }
-
-    const footprint = await getFootprintForPath(path);
-
-    buildings.push({
-      path,
-      triangles,
-      aabb,
-      isDesign: true,
-      isPlanned: false,
-      footprint: footprint ?? [],
-    });
-    console.log(
-      `[shadow] Design building: ${path} (${triangles.length} tris, ${height.toFixed(1)}m)`,
-    );
-  }
-
-  return buildings;
 }
 
 /**
  * Extracts all building meshes and terrain triangles from the Forma scene.
  *
- * Strategy:
- *  1. Walk the element tree → process all paths as context buildings
- *  2. Separately fetch geometry for user-selected design paths (which
- *     live in a different path space than the tree)
- *  3. Combine both sets — the ray caster gives design shadows priority
- *     over context shadows, so overlapping meshes resolve correctly
+ * Buildings are auto-classified as Design (has floor representations)
+ * or Context (no floors) using the element classifier.
  */
 export async function extractSceneGeometry(
   onProgress?: (msg: string) => void,
-  designPathOverrides?: string[],
-  plannedPaths?: string[],
 ): Promise<SceneGeometry> {
-  onProgress?.("Fetching element tree...");
-  const allEntryPaths = await getAllPaths();
+  onProgress?.("Fetching element tree and classifying buildings...");
+  const { designPaths } = await classifyElements();
+  const designSet = new Set(designPaths);
 
+  const allEntryPaths = await getAllPaths();
   onProgress?.(`Processing ${allEntryPaths.length} tree elements...`);
 
   const results = await Promise.allSettled(
-    allEntryPaths.map((path) => processElement(path, false)),
+    allEntryPaths.map((path) => {
+      const isDesign = designSet.has(path);
+      return processElement(path, isDesign);
+    }),
   );
 
   const buildings: BuildingMesh[] = [];
@@ -217,32 +163,6 @@ export async function extractSceneGeometry(
     } else {
       terrainTriangles.push(...result.value.triangles);
     }
-  }
-
-  if (designPathOverrides && designPathOverrides.length > 0) {
-    const designBuildings = await extractDesignBuildings(
-      designPathOverrides,
-      onProgress,
-    );
-    buildings.push(...designBuildings);
-    console.log(
-      `[shadow] Added ${designBuildings.length} design buildings from ${designPathOverrides.length} selection paths`,
-    );
-  }
-
-  if (plannedPaths && plannedPaths.length > 0) {
-    const plannedBuildings = await extractDesignBuildings(
-      plannedPaths,
-      onProgress,
-    );
-    for (const b of plannedBuildings) {
-      b.isDesign = false;
-      b.isPlanned = true;
-    }
-    buildings.push(...plannedBuildings);
-    console.log(
-      `[shadow] Added ${plannedBuildings.length} planned buildings from ${plannedPaths.length} selection paths`,
-    );
   }
 
   let minX = Infinity;
@@ -273,10 +193,9 @@ export async function extractSceneGeometry(
   maxY += expand;
 
   const dCount = buildings.filter((b) => b.isDesign).length;
-  const pCount = buildings.filter((b) => b.isPlanned).length;
-  const cCount = buildings.filter((b) => !b.isDesign && !b.isPlanned).length;
+  const cCount = buildings.filter((b) => !b.isDesign).length;
   onProgress?.(
-    `Extracted ${buildings.length} buildings (${dCount} design, ${pCount} planned, ${cCount} context).`,
+    `Extracted ${buildings.length} buildings (${dCount} design, ${cCount} context).`,
   );
 
   return {

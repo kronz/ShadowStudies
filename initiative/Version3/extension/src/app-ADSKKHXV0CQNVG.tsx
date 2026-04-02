@@ -9,7 +9,6 @@ import ColorControls, { ShadowColorSettings } from "./components/ColorControls";
 import MatrixSelector, { MatrixConfig } from "./components/MatrixSelector";
 import ShadowPreviewButton from "./components/ShadowPreviewButton";
 import ButterflyExportButton from "./components/ButterflyExportButton";
-import DesignBuildingSelector from "./components/DesignBuildingSelector";
 import ShadowROIAnalysis from "./components/ShadowROIAnalysis";
 
 type ExportMode = "matrix" | "custom";
@@ -32,7 +31,6 @@ export default function App() {
     eveningHour: 15,
   });
 
-  const [designPaths, setDesignPaths] = useState<string[]>([]);
   const [shadowVersion, setShadowVersion] = useState(0);
 
   const [shadowSettings, setShadowSettings] = useState<ShadowColorSettings>({
@@ -40,8 +38,6 @@ export default function App() {
     contextShadowColor: "#0E0E0E",
     designShadowEnabled: false,
     designShadowColor: "#6B2D3C",
-    plannedShadowEnabled: false,
-    plannedShadowColor: "#E898B4",
     analysisAreaColor: "#CC9D83",
   });
 
@@ -58,11 +54,6 @@ export default function App() {
   return (
     <>
       <h1>Shadow study v3.009</h1>
-
-      <DesignBuildingSelector
-        designPaths={designPaths}
-        onDesignPathsChange={setDesignPaths}
-      />
 
       <div class="section-header">Export Mode</div>
       <div class="mode-toggle">
@@ -102,7 +93,6 @@ export default function App() {
       <ResolutionSelector resolution={resolution} setResolution={setResolution} />
 
       <ColorControls
-        designPaths={designPaths}
         onShadowSettingsChange={handleShadowSettingsChange}
         onBuildingColorsChange={handleBuildingColorsChange}
       />
@@ -120,10 +110,7 @@ export default function App() {
       )}
 
       <ShadowPreviewButton
-        month={exportMode === "matrix" ? 6 : month}
-        day={exportMode === "matrix" ? 21 : day}
         shadowSettings={shadowSettings}
-        designPaths={designPaths}
         onShadowReady={() => setShadowVersion((v) => v + 1)}
       />
 
@@ -142,7 +129,6 @@ export default function App() {
         matrixConfig={matrixConfig}
         shadowSettings={shadowSettings}
         buildingColors={buildingColors}
-        designPaths={designPaths}
       />
 
       <ButterflyExportButton
@@ -150,7 +136,6 @@ export default function App() {
         day={exportMode === "matrix" ? 21 : day}
         resolution={resolution}
         shadowSettings={shadowSettings}
-        designPaths={designPaths}
       />
     </>
   );

@@ -1,12 +1,9 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
 import { useEffect, useState, useCallback } from "preact/hooks";
 import {
-  getDesignElementPaths,
-  getContextElementPaths,
+  classifyElements,
   subscribeToProposalChanges,
 } from "../lib/element-classifier";
-
-// Re-exported for other components that import ShadowColorSettings from here
 
 const debounce = <F extends (...args: any[]) => ReturnType<F>>(func: F, waitFor: number) => {
   let timeout: number | undefined;
@@ -41,18 +38,15 @@ export type ShadowColorSettings = {
   contextShadowColor: string;
   designShadowEnabled: boolean;
   designShadowColor: string;
-  plannedShadowEnabled: boolean;
-  plannedShadowColor: string;
   analysisAreaColor: string;
 };
 
 type ColorControlsProps = {
-  designPaths: string[];
   onShadowSettingsChange: (settings: ShadowColorSettings) => void;
   onBuildingColorsChange?: (colors: Map<string, string>) => void;
 };
 
-export default function ColorControls({ designPaths: designPathOverrides, onShadowSettingsChange, onBuildingColorsChange }: ColorControlsProps) {
+export default function ColorControls({ onShadowSettingsChange, onBuildingColorsChange }: ColorControlsProps) {
   const [contextBuildingEnabled, setContextBuildingEnabled] = useState(true);
   const [contextBuildingColor, setContextBuildingColor] = useState("#C0B8AD");
   const [designBuildingEnabled, setDesignBuildingEnabled] = useState(true);
@@ -64,8 +58,6 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
   const [contextShadowColor, setContextShadowColor] = useState("#0E0E0E");
   const [designShadowEnabled, setDesignShadowEnabled] = useState(true);
   const [designShadowColor, setDesignShadowColor] = useState("#6B2D3C");
-  const [plannedShadowEnabled, setPlannedShadowEnabled] = useState(true);
-  const [plannedShadowColor, setPlannedShadowColor] = useState("#E898B4");
   const [analysisAreaColor, setAnalysisAreaColor] = useState("#CC9D83");
 
   const [designPaths, setDesignPaths] = useState<string[]>([]);
@@ -73,17 +65,13 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
 
   useEffect(() => {
     const loadPaths = async () => {
-      const overrides = designPathOverrides.length > 0 ? designPathOverrides : undefined;
-      const [design, context] = await Promise.all([
-        getDesignElementPaths(overrides),
-        getContextElementPaths(overrides),
-      ]);
-      setDesignPaths(design);
-      setContextPaths(context);
+      const { designPaths: dp, contextPaths: cp } = await classifyElements();
+      setDesignPaths(dp);
+      setContextPaths(cp);
     };
     loadPaths();
     return subscribeToProposalChanges(loadPaths);
-  }, [designPathOverrides]);
+  }, []);
 
   const propagateShadowSettings = useCallback(() => {
     onShadowSettingsChange({
@@ -91,11 +79,9 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
       contextShadowColor,
       designShadowEnabled,
       designShadowColor,
-      plannedShadowEnabled,
-      plannedShadowColor,
       analysisAreaColor,
     });
-  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor, plannedShadowEnabled, plannedShadowColor, analysisAreaColor]);
+  }, [contextShadowEnabled, contextShadowColor, designShadowEnabled, designShadowColor, analysisAreaColor]);
 
   useEffect(() => {
     propagateShadowSettings();
@@ -177,13 +163,6 @@ export default function ColorControls({ designPaths: designPathOverrides, onShad
         color={designShadowColor}
         onToggle={setDesignShadowEnabled}
         onColor={setDesignShadowColor}
-      />
-      <ColorRow
-        label="Planned shadows:"
-        enabled={plannedShadowEnabled}
-        color={plannedShadowColor}
-        onToggle={setPlannedShadowEnabled}
-        onColor={setPlannedShadowColor}
       />
 
       <div class="section-header">Analysis Area</div>

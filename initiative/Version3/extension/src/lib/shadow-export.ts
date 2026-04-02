@@ -14,10 +14,6 @@ export type ShadowExportOptions = {
   designShadowColor: string;
   contextShadowEnabled: boolean;
   contextShadowColor: string;
-  plannedShadowEnabled?: boolean;
-  plannedShadowColor?: string;
-  designPaths?: string[];
-  plannedPaths?: string[];
   cellSize?: number;
 };
 
@@ -68,7 +64,7 @@ export async function captureFrameWithShadows(
 
   await Forma.sun.setDate({ date });
 
-  const resolvedCache = cache ?? (await prepareScene(onProgress, options.cellSize, options.designPaths, options.plannedPaths));
+  const resolvedCache = cache ?? (await prepareScene(onProgress, options.cellSize));
 
   const sun = await getSunPositionForProject(date);
   const result = await computeShadowGridAsync(resolvedCache, sun, date, onProgress);
@@ -190,9 +186,6 @@ export function renderPlanViewDiagram(
     } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
       ctx.fillStyle = options.designShadowColor + "B3";
       ctx.fillRect(cx, cy, size, size);
-    } else if (cls === ShadowClass.PlannedShadow && options.plannedShadowEnabled && options.plannedShadowColor) {
-      ctx.fillStyle = options.plannedShadowColor + "A6";
-      ctx.fillRect(cx, cy, size, size);
     }
     ctx.restore();
   };
@@ -221,9 +214,7 @@ export function renderPlanViewDiagram(
   for (const b of buildings) {
     ctx.fillStyle = b.isDesign
       ? (options.designBuildingColor ?? "#ffffff")
-      : b.isPlanned
-        ? (options.designBuildingColor ?? "#e8e8ff")
-        : (options.contextBuildingColor ?? "#d0d0d0");
+      : (options.contextBuildingColor ?? "#d0d0d0");
     drawPolygon(ctx, b.footprint, toCanvasX, toCanvasY);
   }
 

@@ -2,7 +2,7 @@ import { Forma } from "forma-embedded-view-sdk/auto";
 
 type MeshGeometry = { position: Float32Array; color: Uint8Array };
 
-const Z_RENDER_OFFSET = 0.05;
+const TERRAIN_OFFSET = 0.15;
 const FILL_ALPHA = 120;
 
 let activeOutlineMeshId: string | null = null;
@@ -18,11 +18,12 @@ function hexToRgb(hex: string): [number, number, number] {
 
 /**
  * Fan-triangulates a polygon from vertex 0 and returns a colored mesh.
- * Works correctly for convex polygons; adequate for typical building
- * footprints and parcel boundaries used as analysis areas.
+ * Each vertex z is set to its terrain elevation + TERRAIN_OFFSET so the
+ * fill sits just above the terrain surface but below shadow meshes.
  */
 function buildFilledPolygonMesh(
   polygon: [number, number][],
+  elevations: number[],
   colorHex: string,
 ): MeshGeometry {
   if (polygon.length < 3) {
@@ -38,12 +39,15 @@ function buildFilledPolygonMesh(
   let vi = 0;
   for (let i = 1; i < polygon.length - 1; i++) {
     const [ax, ay] = polygon[0];
+    const az = elevations[0] + TERRAIN_OFFSET;
     const [bx, by] = polygon[i];
+    const bz = elevations[i] + TERRAIN_OFFSET;
     const [cx, cy] = polygon[i + 1];
+    const cz = elevations[i + 1] + TERRAIN_OFFSET;
 
-    position[vi * 3] = ax; position[vi * 3 + 1] = ay; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
-    position[vi * 3] = bx; position[vi * 3 + 1] = by; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
-    position[vi * 3] = cx; position[vi * 3 + 1] = cy; position[vi * 3 + 2] = Z_RENDER_OFFSET; vi++;
+    position[vi * 3] = ax; position[vi * 3 + 1] = ay; position[vi * 3 + 2] = az; vi++;
+    position[vi * 3] = bx; position[vi * 3 + 1] = by; position[vi * 3 + 2] = bz; vi++;
+    position[vi * 3] = cx; position[vi * 3 + 1] = cy; position[vi * 3 + 2] = cz; vi++;
   }
 
   for (let i = 0; i < vertCount; i++) {
@@ -58,7 +62,8 @@ function buildFilledPolygonMesh(
 
 /**
  * Renders a semi-transparent colored fill over the given polygon in
- * the Forma 3D scene. Removes any previously rendered fill first.
+ * the Forma 3D scene. Samples terrain elevation at each vertex so the
+ * fill follows the ground surface. Removes any previously rendered fill first.
  */
 export async function renderAnalysisAreaOutline(
   polygon: [number, number][],
@@ -68,7 +73,13 @@ export async function renderAnalysisAreaOutline(
 
   if (polygon.length < 3) return;
 
-  const mesh = buildFilledPolygonMesh(polygon, colorHex);
+  const elevations = await Promise.all(
+    polygon.map(([x, y]) =>
+      Forma.terrain.getElevationAt({ x, y }).catch(() => 0),
+    ),
+  );
+
+  const mesh = buildFilledPolygonMesh(polygon, elevations, colorHex);
   if (mesh.position.length === 0) return;
 
   const { id } = await Forma.render.addMesh({ geometryData: mesh });

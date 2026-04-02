@@ -13,7 +13,6 @@ type ButterflyExportButtonProps = {
   day: number;
   resolution: string;
   shadowSettings: ShadowColorSettings;
-  designPaths?: string[];
   cellSize?: number;
 };
 
@@ -22,7 +21,6 @@ export default function ButterflyExportButton({
   day,
   resolution,
   shadowSettings,
-  designPaths,
   cellSize,
 }: ButterflyExportButtonProps) {
   const [exporting, setExporting] = useState(false);
@@ -56,7 +54,6 @@ export default function ButterflyExportButton({
         intervalMinutes: intervalHours * 60,
         year,
         timezone: projectTimezone,
-        designPaths,
         cellSize,
       };
 

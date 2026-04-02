@@ -17,7 +17,6 @@ export type ButterflyConfig = {
   intervalMinutes: number;
   year: number;
   timezone: string;
-  designPaths?: string[];
   cellSize?: number;
 };
 
@@ -44,7 +43,7 @@ export async function computeButterflyDiagram(
   config: ButterflyConfig,
   onProgress?: (message: string) => void,
 ): Promise<ButterflyResult> {
-  const cache: SceneCache = await prepareScene(onProgress, config.cellSize, config.designPaths);
+  const cache: SceneCache = await prepareScene(onProgress, config.cellSize);
 
   let current = DateTime.fromObject(
     {
@@ -109,8 +108,6 @@ export function renderButterflyToCanvas(
     contextShadowColor: string;
     designShadowEnabled: boolean;
     designShadowColor: string;
-    plannedShadowEnabled?: boolean;
-    plannedShadowColor?: string;
     contextBuildingColor?: string;
     designBuildingColor?: string;
     bgColor?: string;
@@ -151,9 +148,6 @@ export function renderButterflyToCanvas(
       ctx.fillRect(cx, cy, size, size);
     } else if (cls === ShadowClass.DesignShadow && options.designShadowEnabled) {
       ctx.fillStyle = hexWithAlpha(options.designShadowColor, alpha);
-      ctx.fillRect(cx, cy, size, size);
-    } else if (cls === ShadowClass.PlannedShadow && options.plannedShadowEnabled && options.plannedShadowColor) {
-      ctx.fillStyle = hexWithAlpha(options.plannedShadowColor, alpha);
       ctx.fillRect(cx, cy, size, size);
     }
   };

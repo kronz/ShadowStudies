@@ -33,10 +33,6 @@ export type ShadowPreviewOptions = {
   designShadowColor: string;
   contextShadowEnabled: boolean;
   contextShadowColor: string;
-  plannedShadowEnabled?: boolean;
-  plannedShadowColor?: string;
-  designPaths?: string[];
-  plannedPaths?: string[];
   cellSize?: number;
   onProgress?: (message: string) => void;
 };
@@ -45,7 +41,6 @@ export type ShadowPreviewResult = {
   areas: {
     contextShadowArea: number;
     designOnlyShadowArea: number;
-    plannedShadowArea: number;
     totalShadowArea: number;
   };
   /** The actual date/time used for the preview. */
@@ -85,7 +80,7 @@ export async function renderShadowPreview(
 
   const previewDate = await resolvePreviewDate(options);
 
-  const cache = await prepareScene(onProgress, options.cellSize, options.designPaths, options.plannedPaths);
+  const cache = await prepareScene(onProgress, options.cellSize);
 
   onProgress?.("Computing sun position...");
   const sun = await getSunPositionForProject(previewDate);
@@ -93,7 +88,7 @@ export async function renderShadowPreview(
   if (sun.altitude <= 0) {
     onProgress?.("Sun is below the horizon.");
     return {
-      areas: { contextShadowArea: 0, designOnlyShadowArea: 0, plannedShadowArea: 0, totalShadowArea: 0 },
+      areas: { contextShadowArea: 0, designOnlyShadowArea: 0, totalShadowArea: 0 },
       dateUsed: previewDate,
     };
   }
