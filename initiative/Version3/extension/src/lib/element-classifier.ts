@@ -77,6 +77,24 @@ export async function classifyElements(): Promise<{
   const contextPaths: string[] = [];
 
   for (const { path, element } of entries) {
+    const cat = element.properties?.category;
+
+    if (cat === "building") {
+      const repKeys = element.representations
+        ? Object.keys(element.representations).filter(
+            (k) => (element.representations as Record<string, unknown>)[k],
+          )
+        : [];
+      const propKeys = element.properties
+        ? Object.keys(element.properties)
+        : [];
+      const design = isDesignBuilding(element);
+      console.log(
+        `[classifier] ${path} → ${design ? "DESIGN" : "CONTEXT"}`,
+        { name: element.properties?.name, repKeys, propKeys },
+      );
+    }
+
     if (isDesignBuilding(element)) {
       designPaths.push(path);
     } else {

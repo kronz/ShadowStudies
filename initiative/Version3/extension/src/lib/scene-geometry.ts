@@ -117,12 +117,21 @@ async function processElement(
   }
 
   const footprint = await getFootprintForPath(path);
-  if (!footprint) return null;
+  if (!footprint) {
+    console.warn(
+      `[scene-geometry] ${path} has height ${height.toFixed(1)}m but no footprint — skipped`,
+    );
+    return null;
+  }
 
   const area = computeFootprintArea(footprint);
   if (area > MAX_FOOTPRINT_AREA) {
     return { type: "terrain", triangles };
   }
+
+  console.log(
+    `[scene-geometry] BUILDING ${path} → ${isDesign ? "DESIGN" : "CONTEXT"} (h=${height.toFixed(1)}m, area=${Math.round(area)}m²)`,
+  );
 
   return {
     type: "building",
