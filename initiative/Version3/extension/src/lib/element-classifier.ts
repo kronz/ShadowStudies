@@ -76,26 +76,31 @@ export async function classifyElements(): Promise<{
   const designPaths: string[] = [];
   const contextPaths: string[] = [];
 
+  const categorySet = new Set<string>();
+
   for (const { path, element } of entries) {
     const cat = element.properties?.category;
+    if (cat) categorySet.add(cat);
 
-    if (cat === "building") {
-      const repKeys = element.representations
-        ? Object.keys(element.representations).filter(
-            (k) => (element.representations as Record<string, unknown>)[k],
-          )
-        : [];
+    const design = isDesignBuilding(element);
+
+    const repKeys = element.representations
+      ? Object.keys(element.representations).filter(
+          (k) => (element.representations as Record<string, unknown>)[k],
+        )
+      : [];
+
+    if (design || cat === "building") {
       const propKeys = element.properties
         ? Object.keys(element.properties)
         : [];
-      const design = isDesignBuilding(element);
       console.log(
-        `[classifier] ${path} → ${design ? "DESIGN" : "CONTEXT"}`,
-        { name: element.properties?.name, repKeys, propKeys },
+        `[classifier] ${path} → ${design ? "DESIGN" : "CONTEXT"} cat=${cat ?? "none"}`,
+        { repKeys, propKeys, props: element.properties },
       );
     }
 
-    if (isDesignBuilding(element)) {
+    if (design) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);
@@ -104,6 +109,10 @@ export async function classifyElements(): Promise<{
 
   console.log(
     `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context`,
+  );
+  console.log(
+    `[element-classifier] categories found:`,
+    [...categorySet],
   );
 
   return { designPaths, contextPaths };
