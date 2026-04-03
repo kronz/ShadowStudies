@@ -87,35 +87,45 @@ export async function classifyElements(): Promise<{
     buildingPaths.slice(0, 5),
   );
 
-  // For each building, check if it has children with design reps.
-  // Also check if the building element itself has children at all —
-  // buildings with children (floors/spaces) are design buildings.
+  // For each building, check if it should be classified as design.
   const designBuildingSet = new Set<string>();
   for (const { path, element } of entries) {
     if (element.properties?.category !== "building") continue;
 
-    // Method 1: descendant has design representations
     const hasDesignDescendant = leafDesignPaths.some((dp) =>
       dp.startsWith(path + "/"),
     );
-
-    // Method 2: building has children (internal structure = floors/spaces)
     const hasChildren = !!(element.children && element.children.length > 0);
+    const selfDesign = hasDesignRepresentations(element);
+    const isDesign = hasDesignDescendant || hasChildren || selfDesign;
 
-    if (hasDesignDescendant || hasChildren) {
+    if (isDesign) {
       designBuildingSet.add(path);
     }
 
     console.log(
-      `[classifier] BUILDING ${path} → ${hasDesignDescendant || hasChildren ? "DESIGN" : "CONTEXT"}`,
+      `[classifier] BUILDING ${path} → ${isDesign ? "DESIGN" : "CONTEXT"}`,
       {
         hasDesignDescendant,
         hasChildren,
+        selfDesign,
         childCount: element.children?.length ?? 0,
         name: element.properties?.name,
         repKeys: Object.keys(element.representations || {}),
       },
     );
+  }
+
+  // Descendants of design buildings inherit design status so that
+  // Forma.render.elementColors.set colors them correctly.
+  const designDescendantPaths = new Set<string>();
+  for (const { path } of entries) {
+    for (const dbPath of designBuildingSet) {
+      if (path.startsWith(dbPath + "/")) {
+        designDescendantPaths.add(path);
+        break;
+      }
+    }
   }
 
   // Pass 2: classify all elements
@@ -125,7 +135,11 @@ export async function classifyElements(): Promise<{
   for (const { path, element } of entries) {
     const selfDesign = hasDesignRepresentations(element);
 
-    if (selfDesign || designBuildingSet.has(path)) {
+    if (
+      selfDesign ||
+      designBuildingSet.has(path) ||
+      designDescendantPaths.has(path)
+    ) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);

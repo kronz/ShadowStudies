@@ -54,7 +54,7 @@ export default function App() {
 
   return (
     <>
-      <h1>Shadow study v3.014</h1>
+      <h1>Shadow study v3.015</h1>
 
       <weave-accordion label="Analysis Area" expanded>
         <ShadowROIAnalysis
