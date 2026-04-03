@@ -59,6 +59,7 @@ function hasDesignRepresentations(element: FormaElement): boolean {
 export async function classifyElements(): Promise<{
   designPaths: string[];
   contextPaths: string[];
+  designBuildingPaths: string[];
 }> {
   const { entries } = await getElementTree();
 
@@ -112,6 +113,7 @@ export async function classifyElements(): Promise<{
         hasChildren,
         childCount: element.children?.length ?? 0,
         name: element.properties?.name,
+        repKeys: Object.keys(element.representations || {}),
       },
     );
   }
@@ -134,7 +136,7 @@ export async function classifyElements(): Promise<{
     `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context (buildings: ${designBuildingSet.size} design, ${buildingPaths.length - designBuildingSet.size} context)`,
   );
 
-  return { designPaths, contextPaths };
+  return { designPaths, contextPaths, designBuildingPaths: Array.from(designBuildingSet) };
 }
 
 /**

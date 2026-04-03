@@ -142,21 +142,45 @@ async function processElement(
 /**
  * Extracts all building meshes and terrain triangles from the Forma scene.
  *
- * Buildings are auto-classified as Design (has floor representations)
- * or Context (no floors) using the element classifier.
+ * Context buildings (childless) are processed individually.
+ * Design buildings (with children/floors) are assembled by aggregating
+ * geometry from all child elements into a single mesh per building,
+ * because the Forma geometry API typically returns null for parent
+ * elements whose geometry is distributed across children.
  */
 export async function extractSceneGeometry(
   onProgress?: (msg: string) => void,
 ): Promise<SceneGeometry> {
   onProgress?.("Fetching element tree and classifying buildings...");
-  const { designPaths } = await classifyElements();
+  const { designPaths, contextPaths, designBuildingPaths } =
+    await classifyElements();
   const designSet = new Set(designPaths);
+  const designBuildingSet = new Set(designBuildingPaths);
 
-  const allEntryPaths = await getAllPaths();
-  onProgress?.(`Processing ${allEntryPaths.length} tree elements...`);
+  const allEntryPaths = [...designPaths, ...contextPaths];
 
+  // Children of design buildings will be aggregated, not processed individually
+  const designChildPaths = new Set<string>();
+  for (const path of allEntryPaths) {
+    if (designBuildingSet.has(path)) continue;
+    for (const dbPath of designBuildingPaths) {
+      if (path.startsWith(dbPath + "/")) {
+        designChildPaths.add(path);
+        break;
+      }
+    }
+  }
+
+  const individualPaths = allEntryPaths.filter(
+    (p) => !designBuildingSet.has(p) && !designChildPaths.has(p),
+  );
+  onProgress?.(
+    `Processing ${individualPaths.length} elements + ${designBuildingPaths.length} design buildings...`,
+  );
+
+  // --- Process context / non-design elements individually ---
   const results = await Promise.allSettled(
-    allEntryPaths.map((path) => {
+    individualPaths.map((path) => {
       const isDesign = designSet.has(path);
       return processElement(path, isDesign);
     }),
@@ -174,6 +198,70 @@ export async function extractSceneGeometry(
     }
   }
 
+  // --- Aggregate each design building from its children ---
+  for (const dbPath of designBuildingPaths) {
+    const parentData = await getTrianglesForPath(dbPath);
+
+    let triangles: Triangle3D[];
+    let aggregated = false;
+
+    if (parentData && parentData.length >= 9) {
+      triangles = parseTriangles(parentData);
+    } else {
+      const childPaths = allEntryPaths.filter(
+        (p) => p !== dbPath && p.startsWith(dbPath + "/"),
+      );
+
+      const childResults = await Promise.allSettled(
+        childPaths.map((cp) => getTrianglesForPath(cp)),
+      );
+
+      const allTris: Triangle3D[] = [];
+      for (const r of childResults) {
+        if (r.status === "fulfilled" && r.value) {
+          allTris.push(...parseTriangles(r.value));
+        }
+      }
+      triangles = allTris;
+      aggregated = true;
+    }
+
+    if (triangles.length === 0) {
+      console.warn(
+        `[scene-geometry] Design building ${dbPath}: no geometry from parent or children`,
+      );
+      continue;
+    }
+
+    const aabb = computeAABB(triangles);
+    const height = aabb.max[2] - aabb.min[2];
+
+    let footprint = await getFootprintForPath(dbPath);
+    if (!footprint) {
+      footprint = [
+        [aabb.min[0], aabb.min[1]],
+        [aabb.max[0], aabb.min[1]],
+        [aabb.max[0], aabb.max[1]],
+        [aabb.min[0], aabb.max[1]],
+      ];
+    }
+
+    const area = computeFootprintArea(footprint);
+
+    console.log(
+      `[scene-geometry] BUILDING ${dbPath} → DESIGN (h=${height.toFixed(1)}m, area=${Math.round(area)}m²${aggregated ? ", aggregated" : ""})`,
+    );
+
+    buildings.push({
+      path: dbPath,
+      triangles,
+      aabb,
+      isDesign: true,
+      footprint,
+    });
+  }
+
+  // --- Compute scene bounds ---
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -212,24 +300,4 @@ export async function extractSceneGeometry(
     terrainTriangles,
     bounds: { minX, minY, maxX, maxY },
   };
-}
-
-async function getAllPaths(): Promise<string[]> {
-  const rootUrn = (await Forma.proposal.getRootUrn()) as any;
-  const { elements } = await Forma.elements.get({ urn: rootUrn, recursive: true });
-  const elMap = elements as Record<string, any>;
-
-  const paths: string[] = [];
-  function walk(urn: string, path: string) {
-    const el = elMap[urn];
-    if (!el) return;
-    paths.push(path);
-    if (el.children) {
-      for (const child of el.children) {
-        walk(child.urn, `${path}/${child.key}`);
-      }
-    }
-  }
-  walk(rootUrn, "root");
-  return paths;
 }
