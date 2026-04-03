@@ -62,43 +62,76 @@ export async function classifyElements(): Promise<{
 }> {
   const { entries } = await getElementTree();
 
-  // Pass 1: find all paths with design-level representations
+  // Pass 1: find all elements with design-level representations and
+  // map each building to whether it has children with those reps.
   const leafDesignPaths: string[] = [];
+  const buildingPaths: string[] = [];
+
   for (const { path, element } of entries) {
     if (hasDesignRepresentations(element)) {
       leafDesignPaths.push(path);
     }
+    if (element.properties?.category === "building") {
+      buildingPaths.push(path);
+    }
   }
 
-  // Pass 2: for building-category elements, check if any descendant is design.
-  // A building is "design" if any of its children/descendants have design reps.
+  // Diagnostic: show tree structure to understand parent-child relationships
+  console.log(
+    `[classifier] ${leafDesignPaths.length} elements with design reps, sample paths:`,
+    leafDesignPaths.slice(0, 5),
+  );
+  console.log(
+    `[classifier] ${buildingPaths.length} building-category elements, sample paths:`,
+    buildingPaths.slice(0, 5),
+  );
+
+  // For each building, check if it has children with design reps.
+  // Also check if the building element itself has children at all —
+  // buildings with children (floors/spaces) are design buildings.
+  const designBuildingSet = new Set<string>();
+  for (const { path, element } of entries) {
+    if (element.properties?.category !== "building") continue;
+
+    // Method 1: descendant has design representations
+    const hasDesignDescendant = leafDesignPaths.some((dp) =>
+      dp.startsWith(path + "/"),
+    );
+
+    // Method 2: building has children (internal structure = floors/spaces)
+    const hasChildren = !!(element.children && element.children.length > 0);
+
+    if (hasDesignDescendant || hasChildren) {
+      designBuildingSet.add(path);
+    }
+
+    console.log(
+      `[classifier] BUILDING ${path} → ${hasDesignDescendant || hasChildren ? "DESIGN" : "CONTEXT"}`,
+      {
+        hasDesignDescendant,
+        hasChildren,
+        childCount: element.children?.length ?? 0,
+        name: element.properties?.name,
+      },
+    );
+  }
+
+  // Pass 2: classify all elements
   const designPaths: string[] = [];
   const contextPaths: string[] = [];
 
   for (const { path, element } of entries) {
-    const cat = element.properties?.category;
     const selfDesign = hasDesignRepresentations(element);
-    const parentOfDesign =
-      cat === "building" &&
-      leafDesignPaths.some((dp) => dp.startsWith(path + "/"));
 
-    if (selfDesign || parentOfDesign) {
+    if (selfDesign || designBuildingSet.has(path)) {
       designPaths.push(path);
     } else {
       contextPaths.push(path);
     }
   }
 
-  const dBuildings = designPaths.filter((p) =>
-    entries.find((e) => e.path === p)?.element.properties?.category === "building",
-  ).length;
-  const cBuildings = entries.filter(
-    (e) =>
-      e.element.properties?.category === "building" &&
-      !designPaths.includes(e.path),
-  ).length;
   console.log(
-    `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context (buildings: ${dBuildings} design, ${cBuildings} context)`,
+    `[element-classifier] ${designPaths.length} design, ${contextPaths.length} context (buildings: ${designBuildingSet.size} design, ${buildingPaths.length - designBuildingSet.size} context)`,
   );
 
   return { designPaths, contextPaths };
