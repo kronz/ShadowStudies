@@ -15,7 +15,7 @@ type ShadowROIAnalysisProps = {
 
 export default function ShadowROIAnalysis({
   shadowVersion,
-  analysisAreaColor = "#CC9D83",
+  analysisAreaColor = "#28C274",
 }: ShadowROIAnalysisProps) {
   const [areaPolygon, setAreaPolygon] = useState<[number, number][] | null>(null);
   const [areaLabel, setAreaLabel] = useState("");

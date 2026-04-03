@@ -67,7 +67,7 @@ function buildFilledPolygonMesh(
  */
 export async function renderAnalysisAreaOutline(
   polygon: [number, number][],
-  colorHex = "#CC9D83",
+  colorHex = "#28C274",
 ): Promise<void> {
   await clearAnalysisAreaOutline();
 
