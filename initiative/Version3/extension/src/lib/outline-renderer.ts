@@ -5,6 +5,7 @@ type MeshGeometry = { position: Float32Array; color: Uint8Array };
 const TERRAIN_OFFSET = 0.1;
 const FILL_ALPHA = 120;
 const GRID_STEP = 2;
+const BOUNDARY_SUBDIVISIONS = 4;
 
 let activeOutlineMeshId: string | null = null;
 
@@ -34,12 +35,35 @@ function pointInPolygon(
   return inside;
 }
 
+function bilerp(
+  tx: number,
+  ty: number,
+  z00: number,
+  z10: number,
+  z01: number,
+  z11: number,
+): number {
+  return z00 * (1 - tx) * (1 - ty) + z10 * tx * (1 - ty) + z01 * (1 - tx) * ty + z11 * tx * ty;
+}
+
+function emitQuad(
+  out: number[],
+  x0: number, y0: number, z00: number,
+  x1: number, y1: number, z10: number, z01: number, z11: number,
+): void {
+  out.push(x0, y0, z00, x1, y0, z10, x1, y1, z11);
+  out.push(x0, y0, z00, x1, y1, z11, x0, y1, z01);
+}
+
 /**
- * Builds a terrain-conforming mesh by laying a dense grid over the polygon,
- * sampling terrain elevation at every grid vertex, and emitting quads that
- * hug the terrain surface. Only quads with at least one corner inside the
- * polygon are included, so the fill extends up to one grid step past the
- * boundary (better than gaps along the edge).
+ * Builds a terrain-conforming mesh that hugs the terrain surface.
+ *
+ * Interior grid cells (all 4 corners inside the polygon) emit a single
+ * 2-triangle quad. Boundary cells (mixed in/out) are subdivided into
+ * BOUNDARY_SUBDIVISIONS × BOUNDARY_SUBDIVISIONS sub-cells; only sub-cells
+ * with all 4 corners inside the polygon are emitted. Sub-cell elevations
+ * are bilinearly interpolated from the parent cell's sampled corners,
+ * so no extra terrain API calls are needed for the refinement.
  */
 async function buildTerrainConformingMesh(
   polygon: [number, number][],
@@ -64,9 +88,7 @@ async function buildTerrainConformingMesh(
   const inside = new Uint8Array(totalPoints);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const x = minX + c * GRID_STEP;
-      const y = minY + r * GRID_STEP;
-      if (pointInPolygon(x, y, polygon)) {
+      if (pointInPolygon(minX + c * GRID_STEP, minY + r * GRID_STEP, polygon)) {
         inside[r * cols + c] = 1;
       }
     }
@@ -80,10 +102,8 @@ async function buildTerrainConformingMesh(
     const end = Math.min(start + BATCH_SIZE, totalPoints);
     const promises: Promise<void>[] = [];
     for (let idx = start; idx < end; idx++) {
-      const c = idx % cols;
-      const r = Math.floor(idx / cols);
-      const x = minX + c * GRID_STEP;
-      const y = minY + r * GRID_STEP;
+      const x = minX + (idx % cols) * GRID_STEP;
+      const y = minY + Math.floor(idx / cols) * GRID_STEP;
       promises.push(
         Forma.terrain
           .getElevationAt({ x, y })
@@ -111,6 +131,8 @@ async function buildTerrainConformingMesh(
   }
 
   const triVerts: number[] = [];
+  const SUB = BOUNDARY_SUBDIVISIONS;
+  const subStep = GRID_STEP / SUB;
 
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < cols - 1; c++) {
@@ -119,20 +141,62 @@ async function buildTerrainConformingMesh(
       const i01 = (r + 1) * cols + c;
       const i11 = (r + 1) * cols + c + 1;
 
-      if (!inside[i00] && !inside[i10] && !inside[i01] && !inside[i11]) continue;
+      const in00 = inside[i00];
+      const in10 = inside[i10];
+      const in01 = inside[i01];
+      const in11 = inside[i11];
+      const insideCount = in00 + in10 + in01 + in11;
+
+      if (insideCount === 0) continue;
 
       const x0 = minX + c * GRID_STEP;
       const x1 = minX + (c + 1) * GRID_STEP;
       const y0 = minY + r * GRID_STEP;
       const y1 = minY + (r + 1) * GRID_STEP;
 
-      const z00 = elevations[i00] + TERRAIN_OFFSET;
-      const z10 = elevations[i10] + TERRAIN_OFFSET;
-      const z01 = elevations[i01] + TERRAIN_OFFSET;
-      const z11 = elevations[i11] + TERRAIN_OFFSET;
+      const z00 = elevations[i00];
+      const z10 = elevations[i10];
+      const z01 = elevations[i01];
+      const z11 = elevations[i11];
 
-      triVerts.push(x0, y0, z00, x1, y0, z10, x1, y1, z11);
-      triVerts.push(x0, y0, z00, x1, y1, z11, x0, y1, z01);
+      if (insideCount === 4) {
+        emitQuad(
+          triVerts,
+          x0, y0, z00 + TERRAIN_OFFSET,
+          x1, y1, z10 + TERRAIN_OFFSET, z01 + TERRAIN_OFFSET, z11 + TERRAIN_OFFSET,
+        );
+        continue;
+      }
+
+      for (let sr = 0; sr < SUB; sr++) {
+        for (let sc = 0; sc < SUB; sc++) {
+          const sx0 = x0 + sc * subStep;
+          const sx1 = x0 + (sc + 1) * subStep;
+          const sy0 = y0 + sr * subStep;
+          const sy1 = y0 + (sr + 1) * subStep;
+
+          if (
+            !pointInPolygon(sx0, sy0, polygon) ||
+            !pointInPolygon(sx1, sy0, polygon) ||
+            !pointInPolygon(sx0, sy1, polygon) ||
+            !pointInPolygon(sx1, sy1, polygon)
+          ) continue;
+
+          const tx0 = sc / SUB;
+          const tx1 = (sc + 1) / SUB;
+          const ty0 = sr / SUB;
+          const ty1 = (sr + 1) / SUB;
+
+          emitQuad(
+            triVerts,
+            sx0, sy0, bilerp(tx0, ty0, z00, z10, z01, z11) + TERRAIN_OFFSET,
+            sx1, sy1,
+            bilerp(tx1, ty0, z00, z10, z01, z11) + TERRAIN_OFFSET,
+            bilerp(tx0, ty1, z00, z10, z01, z11) + TERRAIN_OFFSET,
+            bilerp(tx1, ty1, z00, z10, z01, z11) + TERRAIN_OFFSET,
+          );
+        }
+      }
     }
   }
 
@@ -158,6 +222,7 @@ async function buildTerrainConformingMesh(
  * Renders a semi-transparent colored fill over the given polygon in
  * the Forma 3D scene. The mesh conforms to the terrain surface by
  * sampling elevation on a dense grid and offsetting slightly above.
+ * Boundary cells are subdivided for smoother polygon-edge fidelity.
  */
 export async function renderAnalysisAreaOutline(
   polygon: [number, number][],
