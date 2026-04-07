@@ -31,7 +31,7 @@ export function gridToMesh(
   const position = new Float32Array(vertCount * 3);
   const colorArr = new Uint8Array(vertCount * 4);
 
-  const Z_RENDER_OFFSET = 1.0;
+  const Z_RENDER_OFFSET = 0.2;
 
   let vi = 0;
   for (const idx of matchingIndices) {
@@ -91,7 +91,7 @@ function cellsToMesh(
   const position = new Float32Array(vertCount * 3);
   const colorArr = new Uint8Array(vertCount * 4);
 
-  const Z_RENDER_OFFSET = 1.0;
+  const Z_RENDER_OFFSET = 0.2;
 
   let vi = 0;
   for (const idx of matchingIndices) {
