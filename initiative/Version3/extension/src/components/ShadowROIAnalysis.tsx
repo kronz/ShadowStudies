@@ -5,17 +5,19 @@ import {
   computeShadowPercentageInRegion,
   type AnalysisAreaResult,
 } from "../lib/shadow-grid";
-import { getAreaFormatter, formatTimeInProjectTz } from "../lib/format-utils";
+import { formatTimeInProjectTz } from "../lib/format-utils";
 import { renderAnalysisAreaOutline, clearAnalysisAreaOutline } from "../lib/outline-renderer";
 
 type ShadowROIAnalysisProps = {
   shadowVersion: number;
   analysisAreaColor?: string;
+  onAnalysisResult?: (result: AnalysisAreaResult | null, time: string) => void;
 };
 
 export default function ShadowROIAnalysis({
   shadowVersion,
   analysisAreaColor = "#28C274",
+  onAnalysisResult,
 }: ShadowROIAnalysisProps) {
   const [areaPolygon, setAreaPolygon] = useState<[number, number][] | null>(null);
   const [areaLabel, setAreaLabel] = useState("");
@@ -23,13 +25,9 @@ export default function ShadowROIAnalysis({
   const [status, setStatus] = useState("");
   const [capturing, setCapturing] = useState(false);
   const [analysisTime, setAnalysisTime] = useState<string>("");
-  const [formatArea, setFormatArea] = useState<(sqM: number) => string>(
-    () => (sqM: number) => `${Math.round(sqM).toLocaleString()} m²`,
-  );
-
   useEffect(() => {
-    getAreaFormatter().then((fn) => setFormatArea(() => fn));
-  }, []);
+    onAnalysisResult?.(areaResult, analysisTime);
+  }, [areaResult, analysisTime]);
 
   useEffect(() => {
     if (areaPolygon) {
@@ -146,49 +144,6 @@ export default function ShadowROIAnalysis({
               Reselect
             </weave-button>
           </div>
-
-          {areaResult ? (
-            <div style={{ fontSize: "10px", color: "#3c3c3c", padding: "4px 0" }}>
-              {analysisTime && (
-                <div style={{ fontStyle: "italic", marginBottom: "2px" }}>
-                  Analysis at {analysisTime}
-                </div>
-              )}
-              <div>Analysis area: {formatArea(areaResult.analysisArea)}</div>
-              <div style={{ fontWeight: "bold" }}>
-                Shadow coverage: {formatArea(areaResult.shadowArea)} (
-                {Math.round(areaResult.percentage)}%)
-              </div>
-              {areaResult.designShadowCells > 0 && (
-                <div>
-                  ↳ Design shadow (net new): {Math.round(areaResult.designPercentage)}%
-                </div>
-              )}
-              {areaResult.contextShadowCells > 0 && (
-                <div>
-                  ↳ Context shadow: {Math.round(areaResult.contextPercentage)}%
-                </div>
-              )}
-              {areaResult.totalCells === 0 && (
-                <div style={{ color: "#b35900" }}>
-                  No grid cells found in the analysis area. The selected area
-                  may be outside the analysis bounds.
-                </div>
-              )}
-            </div>
-          ) : (
-            !status && (
-              <div
-                style={{
-                  fontSize: "10px",
-                  color: "#3c3c3cb2",
-                  padding: "2px 0 0",
-                }}
-              >
-                Run shadow preview to see analysis.
-              </div>
-            )
-          )}
         </>
       ) : (
         <>

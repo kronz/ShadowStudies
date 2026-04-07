@@ -50,7 +50,7 @@ export default function ColorControls({ onShadowSettingsChange, onBuildingColors
   const [contextBuildingEnabled, setContextBuildingEnabled] = useState(true);
   const [contextBuildingColor, setContextBuildingColor] = useState("#FFFFFF");
   const [designBuildingEnabled, setDesignBuildingEnabled] = useState(true);
-  const [designBuildingColor, setDesignBuildingColor] = useState("#FFFFFF");
+  const [designBuildingColor, setDesignBuildingColor] = useState("#388E3C");
   const [terrainEnabled, setTerrainEnabled] = useState(true);
   const [terrainColor, setTerrainColor] = useState("#FFFFFF");
 
