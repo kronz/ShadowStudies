@@ -48,6 +48,21 @@ function hasDesignRepresentations(element: FormaElement): boolean {
   return !!(reps.graphBuilding || reps.grossFloorAreaPolygons || reps.semanticMesh);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Returns true if any ancestor path segment is a UUID, which indicates
+ * the element was imported as part of a surrounding-buildings dataset
+ * rather than created in the design proposal.
+ */
+function isUnderContextImport(path: string): boolean {
+  const segments = path.split("/");
+  for (let i = 1; i < segments.length - 1; i++) {
+    if (UUID_RE.test(segments[i])) return true;
+  }
+  return false;
+}
+
 /**
  * Auto-classifies elements into design and context.
  *
@@ -88,6 +103,9 @@ export async function classifyElements(): Promise<{
   );
 
   // For each building, check if it should be classified as design.
+  // A building is design if it has design representations, design
+  // descendants, or children — OR if it lives in the proposal tree
+  // (not under a UUID-keyed context import container).
   const designBuildingSet = new Set<string>();
   for (const { path, element } of entries) {
     if (element.properties?.category !== "building") continue;
@@ -97,7 +115,10 @@ export async function classifyElements(): Promise<{
     );
     const hasChildren = !!(element.children && element.children.length > 0);
     const selfDesign = hasDesignRepresentations(element);
-    const isDesign = hasDesignDescendant || hasChildren || selfDesign;
+    const contextImport = isUnderContextImport(path);
+    const proposalNative = !contextImport;
+
+    const isDesign = hasDesignDescendant || hasChildren || selfDesign || proposalNative;
 
     if (isDesign) {
       designBuildingSet.add(path);
@@ -109,6 +130,7 @@ export async function classifyElements(): Promise<{
         hasDesignDescendant,
         hasChildren,
         selfDesign,
+        proposalNative,
         childCount: element.children?.length ?? 0,
         name: element.properties?.name,
         repKeys: Object.keys(element.representations || {}),
